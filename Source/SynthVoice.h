@@ -18,12 +18,21 @@ struct OscillatorState {
     double phase;
 };
 
+enum EnvelopeStage {
+    kEnvStage_Idle,
+    kEnvStage_Attack,
+    kEnvStage_Decay,
+    kEnvStage_Sustain,
+    kEnvStage_Release
+};
+
 class SynthVoice {
 public:
     SynthVoice() : mNote(-1), mVelocity(0), mActive(false),
                    mFilterCutoff(20000.0f), mFilterResonance(0.5f),
                    mLowpass(0.0f), mBandpass(0.0f),
-                   mEnvelope(0.0f), mReleasing(false) {
+                   mEnvelopeLevel(0.0f), mEnvStage(kEnvStage_Idle), mReleaseStartLevel(0.0f),
+                   mEnvAttack(0.01f), mEnvDecay(0.1f), mEnvSustain(0.7f), mEnvRelease(0.3f) {
         // Initialize oscillator 1
         mOsc1.waveform = kWaveform_Sine;
         mOsc1.octave = 0;
@@ -54,21 +63,23 @@ public:
         mOsc2.phase = 0.0;
         mOsc3.phase = 0.0;
         mActive = true;
-        mReleasing = false;
 
         // Reset filter state
         mLowpass = 0.0f;
         mBandpass = 0.0f;
 
-        // Reset envelope
-        mEnvelope = 0.0f;
+        // Start envelope at attack stage
+        mEnvelopeLevel = 0.0f;
+        mEnvStage = kEnvStage_Attack;
 
         // Convert MIDI note to frequency: 440 * 2^((note-69)/12)
         mBaseFrequency = 440.0 * pow(2.0, (note - 69) / 12.0);
     }
 
     void NoteOff() {
-        mReleasing = true;
+        // Enter release stage and store current level for linear release
+        mEnvStage = kEnvStage_Release;
+        mReleaseStartLevel = mEnvelopeLevel;
     }
 
     bool IsActive() const { return mActive; }
@@ -103,34 +114,15 @@ public:
         mFilterResonance = resonance;
     }
 
+    void SetEnvelope(float attack, float decay, float sustain, float release) {
+        mEnvAttack = attack;
+        mEnvDecay = decay;
+        mEnvSustain = sustain;
+        mEnvRelease = release;
+    }
+
     float RenderSample() {
         if (!mActive) return 0.0f;
-
-        // Update envelope
-        const float attackTime = 0.005f;  // 5ms attack
-        const float releaseTime = 0.05f;  // 50ms release
-
-        if (mReleasing) {
-            // Release phase - fade out
-            float releaseRate = 1.0f / (releaseTime * mSampleRate);
-            mEnvelope -= releaseRate;
-
-            if (mEnvelope <= 0.0f) {
-                mEnvelope = 0.0f;
-                mActive = false;
-                mNote = -1;
-                return 0.0f;
-            }
-        } else {
-            // Attack phase - fade in
-            if (mEnvelope < 1.0f) {
-                float attackRate = 1.0f / (attackTime * mSampleRate);
-                mEnvelope += attackRate;
-                if (mEnvelope > 1.0f) {
-                    mEnvelope = 1.0f;
-                }
-            }
-        }
 
         // Generate and mix three oscillators
         float mixedSample = 0.0f;
@@ -156,9 +148,6 @@ public:
         // Apply velocity and scaling (reduced from 0.5f to 0.15f to prevent clipping)
         mixedSample *= (mVelocity / 127.0f) * 0.15f;
 
-        // Apply envelope
-        mixedSample *= mEnvelope;
-
         float sample = mixedSample;
 
         // Apply low-pass filter (State Variable Filter)
@@ -178,6 +167,10 @@ public:
             sample = mLowpass;
         }
 
+        // Apply ADSR envelope (after filter, before master volume)
+        UpdateEnvelope();
+        sample *= mEnvelopeLevel;
+
         // Advance phases for all oscillators
         AdvanceOscillatorPhase(mOsc1);
         AdvanceOscillatorPhase(mOsc2);
@@ -187,6 +180,68 @@ public:
     }
 
 private:
+    void UpdateEnvelope() {
+        switch (mEnvStage) {
+            case kEnvStage_Idle:
+                mEnvelopeLevel = 0.0f;
+                break;
+
+            case kEnvStage_Attack:
+                if (mEnvAttack > 0.0001f) {
+                    float attackRate = 1.0f / (mEnvAttack * mSampleRate);
+                    mEnvelopeLevel += attackRate;
+                    if (mEnvelopeLevel >= 1.0f) {
+                        mEnvelopeLevel = 1.0f;
+                        mEnvStage = kEnvStage_Decay;
+                    }
+                } else {
+                    // Instant attack
+                    mEnvelopeLevel = 1.0f;
+                    mEnvStage = kEnvStage_Decay;
+                }
+                break;
+
+            case kEnvStage_Decay:
+                if (mEnvDecay > 0.0001f) {
+                    float decayRate = (1.0f - mEnvSustain) / (mEnvDecay * mSampleRate);
+                    mEnvelopeLevel -= decayRate;
+                    if (mEnvelopeLevel <= mEnvSustain) {
+                        mEnvelopeLevel = mEnvSustain;
+                        mEnvStage = kEnvStage_Sustain;
+                    }
+                } else {
+                    // Instant decay
+                    mEnvelopeLevel = mEnvSustain;
+                    mEnvStage = kEnvStage_Sustain;
+                }
+                break;
+
+            case kEnvStage_Sustain:
+                mEnvelopeLevel = mEnvSustain;
+                break;
+
+            case kEnvStage_Release:
+                if (mEnvRelease > 0.0001f) {
+                    // Linear decay from release start level to 0
+                    float releaseRate = mReleaseStartLevel / (mEnvRelease * mSampleRate);
+                    mEnvelopeLevel -= releaseRate;
+                    if (mEnvelopeLevel <= 0.0f) {
+                        mEnvelopeLevel = 0.0f;
+                        mEnvStage = kEnvStage_Idle;
+                        mActive = false;
+                        mNote = -1;
+                    }
+                } else {
+                    // Instant release
+                    mEnvelopeLevel = 0.0f;
+                    mEnvStage = kEnvStage_Idle;
+                    mActive = false;
+                    mNote = -1;
+                }
+                break;
+        }
+    }
+
     float GenerateOscillatorSample(const OscillatorState& osc) {
         float normalizedPhase = osc.phase / (2.0 * M_PI); // 0.0 to 1.0
         float sample = 0.0f;
@@ -246,8 +301,13 @@ private:
     float mFilterResonance;
     float mLowpass;
     float mBandpass;
-    float mEnvelope;
-    bool mReleasing;
+    float mEnvelopeLevel;
+    EnvelopeStage mEnvStage;
+    float mReleaseStartLevel;
+    float mEnvAttack;
+    float mEnvDecay;
+    float mEnvSustain;
+    float mEnvRelease;
 };
 
 #endif

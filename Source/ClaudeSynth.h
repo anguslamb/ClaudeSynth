@@ -26,7 +26,12 @@ enum {
     kParam_Osc3_Volume = 12,
 
     kParam_FilterCutoff = 13,
-    kParam_FilterResonance = 14
+    kParam_FilterResonance = 14,
+
+    kParam_EnvAttack = 15,
+    kParam_EnvDecay = 16,
+    kParam_EnvSustain = 17,
+    kParam_EnvRelease = 18
 };
 
 struct OscillatorSettings {
@@ -49,6 +54,10 @@ struct ClaudeSynthData {
     OscillatorSettings osc3;
     float filterCutoff;
     float filterResonance;
+    float envAttack;
+    float envDecay;
+    float envSustain;
+    float envRelease;
 };
 
 // Helper functions

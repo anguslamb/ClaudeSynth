@@ -65,6 +65,21 @@
     NSTextField *resonanceLabel;
     NSTextField *resonanceValueDisplay;
 
+    // Envelope
+    NSTextField *envelopeLabel;
+    NSSlider *attackSlider;
+    NSTextField *attackLabel;
+    NSTextField *attackDisplay;
+    NSSlider *decaySlider;
+    NSTextField *decayLabel;
+    NSTextField *decayDisplay;
+    NSSlider *sustainSlider;
+    NSTextField *sustainLabel;
+    NSTextField *sustainDisplay;
+    NSSlider *releaseSlider;
+    NSTextField *releaseLabel;
+    NSTextField *releaseDisplay;
+
     NSTextField *titleLabel;
     NSTimer *updateTimer;
 }
@@ -85,6 +100,10 @@
 - (void)osc3VolumeChanged:(id)sender;
 - (void)cutoffChanged:(id)sender;
 - (void)resonanceChanged:(id)sender;
+- (void)attackChanged:(id)sender;
+- (void)decayChanged:(id)sender;
+- (void)sustainChanged:(id)sender;
+- (void)releaseChanged:(id)sender;
 - (void)updateFromHost:(NSTimer *)timer;
 
 @end

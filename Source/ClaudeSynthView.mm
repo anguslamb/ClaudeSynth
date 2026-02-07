@@ -4,7 +4,7 @@
 @implementation ClaudeSynthView
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au {
-    self = [super initWithFrame:NSMakeRect(0, 0, 900, 320)];
+    self = [super initWithFrame:NSMakeRect(0, 0, 1080, 320)];
     if (self) {
         mAU = au;
 
@@ -13,7 +13,7 @@
         self.layer.backgroundColor = [[NSColor colorWithWhite:0.15 alpha:1.0] CGColor];
 
         // Title label at top
-        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 280, 900, 30)];
+        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 280, 1080, 30)];
         [titleLabel setStringValue:@"ClaudeSynth"];
         [titleLabel setAlignment:NSTextAlignmentCenter];
         [titleLabel setBezeled:NO];
@@ -24,14 +24,15 @@
         [titleLabel setTextColor:[NSColor whiteColor]];
         [self addSubview:titleLabel];
 
-        // Layout: 5 sections horizontally - Osc1, Osc2, Osc3, Filter, Master
+        // Layout: 6 sections horizontally - Osc1, Osc2, Osc3, Filter, Envelope, Master
         // Each section is 180 pixels wide
         int sectionWidth = 180;
         int osc1X = 0;
         int osc2X = 180;
         int osc3X = 360;
         int filterX = 540;
-        int masterX = 720;
+        int envelopeX = 720;
+        int masterX = 900;
 
         // ===== OSCILLATOR 1 =====
         [self createOscillatorSection:1 atX:osc1X];
@@ -130,6 +131,166 @@
         [resonanceValueDisplay setFont:[NSFont systemFontOfSize:10]];
         [resonanceValueDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
         [self addSubview:resonanceValueDisplay];
+
+        // ===== ENVELOPE SECTION =====
+        envelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 30, 255, 120, 20)];
+        [envelopeLabel setStringValue:@"Envelope"];
+        [envelopeLabel setAlignment:NSTextAlignmentCenter];
+        [envelopeLabel setBezeled:NO];
+        [envelopeLabel setDrawsBackground:NO];
+        [envelopeLabel setEditable:NO];
+        [envelopeLabel setSelectable:NO];
+        [envelopeLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
+        [envelopeLabel setTextColor:[NSColor whiteColor]];
+        [self addSubview:envelopeLabel];
+
+        // Attack slider
+        attackLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 15, 220, 30, 16)];
+        [attackLabel setStringValue:@"A"];
+        [attackLabel setAlignment:NSTextAlignmentCenter];
+        [attackLabel setBezeled:NO];
+        [attackLabel setDrawsBackground:NO];
+        [attackLabel setEditable:NO];
+        [attackLabel setSelectable:NO];
+        [attackLabel setFont:[NSFont systemFontOfSize:11]];
+        [attackLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:attackLabel];
+
+        attackSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 15, 60, 30, 160)];
+        [attackSlider setMinValue:0.001];
+        [attackSlider setMaxValue:5.0];
+
+        AudioUnitParameterValue initialAttack = 0.01f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_EnvAttack, kAudioUnitScope_Global, 0, &initialAttack);
+        }
+        [attackSlider setDoubleValue:initialAttack];
+        [attackSlider setTarget:self];
+        [attackSlider setAction:@selector(attackChanged:)];
+        [attackSlider setContinuous:YES];
+        [self addSubview:attackSlider];
+
+        attackDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 15, 40, 30, 16)];
+        [attackDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(initialAttack * 1000)]];
+        [attackDisplay setAlignment:NSTextAlignmentCenter];
+        [attackDisplay setBezeled:NO];
+        [attackDisplay setDrawsBackground:NO];
+        [attackDisplay setEditable:NO];
+        [attackDisplay setSelectable:NO];
+        [attackDisplay setFont:[NSFont systemFontOfSize:9]];
+        [attackDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:attackDisplay];
+
+        // Decay slider
+        decayLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 55, 220, 30, 16)];
+        [decayLabel setStringValue:@"D"];
+        [decayLabel setAlignment:NSTextAlignmentCenter];
+        [decayLabel setBezeled:NO];
+        [decayLabel setDrawsBackground:NO];
+        [decayLabel setEditable:NO];
+        [decayLabel setSelectable:NO];
+        [decayLabel setFont:[NSFont systemFontOfSize:11]];
+        [decayLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:decayLabel];
+
+        decaySlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 55, 60, 30, 160)];
+        [decaySlider setMinValue:0.001];
+        [decaySlider setMaxValue:5.0];
+
+        AudioUnitParameterValue initialDecay = 0.1f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_EnvDecay, kAudioUnitScope_Global, 0, &initialDecay);
+        }
+        [decaySlider setDoubleValue:initialDecay];
+        [decaySlider setTarget:self];
+        [decaySlider setAction:@selector(decayChanged:)];
+        [decaySlider setContinuous:YES];
+        [self addSubview:decaySlider];
+
+        decayDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 55, 40, 30, 16)];
+        [decayDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(initialDecay * 1000)]];
+        [decayDisplay setAlignment:NSTextAlignmentCenter];
+        [decayDisplay setBezeled:NO];
+        [decayDisplay setDrawsBackground:NO];
+        [decayDisplay setEditable:NO];
+        [decayDisplay setSelectable:NO];
+        [decayDisplay setFont:[NSFont systemFontOfSize:9]];
+        [decayDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:decayDisplay];
+
+        // Sustain slider
+        sustainLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 95, 220, 30, 16)];
+        [sustainLabel setStringValue:@"S"];
+        [sustainLabel setAlignment:NSTextAlignmentCenter];
+        [sustainLabel setBezeled:NO];
+        [sustainLabel setDrawsBackground:NO];
+        [sustainLabel setEditable:NO];
+        [sustainLabel setSelectable:NO];
+        [sustainLabel setFont:[NSFont systemFontOfSize:11]];
+        [sustainLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:sustainLabel];
+
+        sustainSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 95, 60, 30, 160)];
+        [sustainSlider setMinValue:0.0];
+        [sustainSlider setMaxValue:1.0];
+
+        AudioUnitParameterValue initialSustain = 0.7f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_EnvSustain, kAudioUnitScope_Global, 0, &initialSustain);
+        }
+        [sustainSlider setDoubleValue:initialSustain];
+        [sustainSlider setTarget:self];
+        [sustainSlider setAction:@selector(sustainChanged:)];
+        [sustainSlider setContinuous:YES];
+        [self addSubview:sustainSlider];
+
+        sustainDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 95, 40, 30, 16)];
+        [sustainDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialSustain * 100]];
+        [sustainDisplay setAlignment:NSTextAlignmentCenter];
+        [sustainDisplay setBezeled:NO];
+        [sustainDisplay setDrawsBackground:NO];
+        [sustainDisplay setEditable:NO];
+        [sustainDisplay setSelectable:NO];
+        [sustainDisplay setFont:[NSFont systemFontOfSize:9]];
+        [sustainDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:sustainDisplay];
+
+        // Release slider
+        releaseLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 135, 220, 30, 16)];
+        [releaseLabel setStringValue:@"R"];
+        [releaseLabel setAlignment:NSTextAlignmentCenter];
+        [releaseLabel setBezeled:NO];
+        [releaseLabel setDrawsBackground:NO];
+        [releaseLabel setEditable:NO];
+        [releaseLabel setSelectable:NO];
+        [releaseLabel setFont:[NSFont systemFontOfSize:11]];
+        [releaseLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:releaseLabel];
+
+        releaseSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 135, 60, 30, 160)];
+        [releaseSlider setMinValue:0.001];
+        [releaseSlider setMaxValue:5.0];
+
+        AudioUnitParameterValue initialRelease = 0.3f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_EnvRelease, kAudioUnitScope_Global, 0, &initialRelease);
+        }
+        [releaseSlider setDoubleValue:initialRelease];
+        [releaseSlider setTarget:self];
+        [releaseSlider setAction:@selector(releaseChanged:)];
+        [releaseSlider setContinuous:YES];
+        [self addSubview:releaseSlider];
+
+        releaseDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 135, 40, 30, 16)];
+        [releaseDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(initialRelease * 1000)]];
+        [releaseDisplay setAlignment:NSTextAlignmentCenter];
+        [releaseDisplay setBezeled:NO];
+        [releaseDisplay setDrawsBackground:NO];
+        [releaseDisplay setEditable:NO];
+        [releaseDisplay setSelectable:NO];
+        [releaseDisplay setFont:[NSFont systemFontOfSize:9]];
+        [releaseDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:releaseDisplay];
 
         // ===== MASTER VOLUME SECTION =====
         masterVolumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 255, 120, 20)];
@@ -545,6 +706,59 @@
     [resonanceValueDisplay setStringValue:[NSString stringWithFormat:@"Q: %.2f", value]];
 }
 
+// Envelope
+- (void)attackChanged:(id)sender {
+    float value = [attackSlider floatValue];
+
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_EnvAttack, kAudioUnitScope_Global, 0, value, 0);
+    }
+
+    if (value >= 1.0f) {
+        [attackDisplay setStringValue:[NSString stringWithFormat:@"%.1fs", value]];
+    } else {
+        [attackDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(value * 1000)]];
+    }
+}
+
+- (void)decayChanged:(id)sender {
+    float value = [decaySlider floatValue];
+
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_EnvDecay, kAudioUnitScope_Global, 0, value, 0);
+    }
+
+    if (value >= 1.0f) {
+        [decayDisplay setStringValue:[NSString stringWithFormat:@"%.1fs", value]];
+    } else {
+        [decayDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(value * 1000)]];
+    }
+}
+
+- (void)sustainChanged:(id)sender {
+    float value = [sustainSlider floatValue];
+
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_EnvSustain, kAudioUnitScope_Global, 0, value, 0);
+    }
+
+    [sustainDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100]];
+}
+
+- (void)releaseChanged:(id)sender {
+    float value = [releaseSlider floatValue];
+
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_EnvRelease, kAudioUnitScope_Global, 0, value, 0);
+    }
+
+    if (value >= 1.0f) {
+        [releaseDisplay setStringValue:[NSString stringWithFormat:@"%.1fs", value]];
+    } else {
+        [releaseDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(value * 1000)]];
+    }
+}
+
 - (void)updateFromHost:(NSTimer *)timer {
     if (!mAU) return;
 
@@ -613,6 +827,47 @@
         if (fabs(value - [resonanceKnob floatValue]) > 0.01f) {
             [resonanceKnob setFloatValue:value];
             [resonanceValueDisplay setStringValue:[NSString stringWithFormat:@"Q: %.2f", value]];
+        }
+    }
+
+    // Update envelope parameters
+    if (AudioUnitGetParameter(mAU, kParam_EnvAttack, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [attackSlider floatValue]) > 0.001f) {
+            [attackSlider setFloatValue:value];
+            if (value >= 1.0f) {
+                [attackDisplay setStringValue:[NSString stringWithFormat:@"%.1fs", value]];
+            } else {
+                [attackDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(value * 1000)]];
+            }
+        }
+    }
+
+    if (AudioUnitGetParameter(mAU, kParam_EnvDecay, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [decaySlider floatValue]) > 0.001f) {
+            [decaySlider setFloatValue:value];
+            if (value >= 1.0f) {
+                [decayDisplay setStringValue:[NSString stringWithFormat:@"%.1fs", value]];
+            } else {
+                [decayDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(value * 1000)]];
+            }
+        }
+    }
+
+    if (AudioUnitGetParameter(mAU, kParam_EnvSustain, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [sustainSlider floatValue]) > 0.001f) {
+            [sustainSlider setFloatValue:value];
+            [sustainDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100]];
+        }
+    }
+
+    if (AudioUnitGetParameter(mAU, kParam_EnvRelease, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [releaseSlider floatValue]) > 0.001f) {
+            [releaseSlider setFloatValue:value];
+            if (value >= 1.0f) {
+                [releaseDisplay setStringValue:[NSString stringWithFormat:@"%.1fs", value]];
+            } else {
+                [releaseDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(value * 1000)]];
+            }
         }
     }
 }

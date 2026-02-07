@@ -105,6 +105,13 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
 
     data->filterCutoff = 20000.0f; // Wide open by default
     data->filterResonance = 0.7f; // Mild resonance by default
+
+    // ADSR envelope defaults
+    data->envAttack = 0.01f;   // 10ms attack
+    data->envDecay = 0.1f;     // 100ms decay
+    data->envSustain = 0.7f;   // 70% sustain level
+    data->envRelease = 0.3f;   // 300ms release
+
     ClaudeLog("Factory: initialized parameters");
 
     return &data->pluginInterface;
@@ -197,7 +204,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 15;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 19;
             if (outWritable) *outWritable = 0;
             return noErr;
 
@@ -328,7 +335,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID) * 15)
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 19)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
@@ -347,7 +354,11 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                 paramList[12] = kParam_Osc3_Volume;
                 paramList[13] = kParam_FilterCutoff;
                 paramList[14] = kParam_FilterResonance;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 15;
+                paramList[15] = kParam_EnvAttack;
+                paramList[16] = kParam_EnvDecay;
+                paramList[17] = kParam_EnvSustain;
+                paramList[18] = kParam_EnvRelease;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 19;
             }
             return noErr;
 
@@ -482,6 +493,38 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->maxValue = 10.0f;
                         info->defaultValue = 0.7f;
                         info->cfNameString = CFSTR("Filter Resonance");
+                        break;
+
+                    case kParam_EnvAttack:
+                        info->unit = kAudioUnitParameterUnit_Seconds;
+                        info->minValue = 0.001f;
+                        info->maxValue = 5.0f;
+                        info->defaultValue = 0.01f;
+                        info->cfNameString = CFSTR("Env Attack");
+                        break;
+
+                    case kParam_EnvDecay:
+                        info->unit = kAudioUnitParameterUnit_Seconds;
+                        info->minValue = 0.001f;
+                        info->maxValue = 5.0f;
+                        info->defaultValue = 0.1f;
+                        info->cfNameString = CFSTR("Env Decay");
+                        break;
+
+                    case kParam_EnvSustain:
+                        info->unit = kAudioUnitParameterUnit_LinearGain;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.7f;
+                        info->cfNameString = CFSTR("Env Sustain");
+                        break;
+
+                    case kParam_EnvRelease:
+                        info->unit = kAudioUnitParameterUnit_Seconds;
+                        info->minValue = 0.001f;
+                        info->maxValue = 5.0f;
+                        info->defaultValue = 0.3f;
+                        info->cfNameString = CFSTR("Env Release");
                         break;
 
                     default:
@@ -748,6 +791,8 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                                          data->osc3.detune, data->osc3.volume);
                     voice->SetFilterCutoff(data->filterCutoff);
                     voice->SetFilterResonance(data->filterResonance);
+                    voice->SetEnvelope(data->envAttack, data->envDecay,
+                                      data->envSustain, data->envRelease);
                     ClaudeLog("  -> Voice allocated for note %d", noteNumber);
                 } else {
                     ClaudeLog("  -> ERROR: FindFreeVoice returned NULL!");
@@ -808,6 +853,8 @@ static void UpdateAllVoices(ClaudeSynthData *data) {
                                        data->osc3.detune, data->osc3.volume);
         data->voices[i].SetFilterCutoff(data->filterCutoff);
         data->voices[i].SetFilterResonance(data->filterResonance);
+        data->voices[i].SetEnvelope(data->envAttack, data->envDecay,
+                                    data->envSustain, data->envRelease);
     }
 }
 
@@ -894,6 +941,26 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
             UpdateAllVoices(data);
             return noErr;
 
+        case kParam_EnvAttack:
+            data->envAttack = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_EnvDecay:
+            data->envDecay = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_EnvSustain:
+            data->envSustain = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_EnvRelease:
+            data->envRelease = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
         default:
             return kAudioUnitErr_InvalidParameter;
     }
@@ -968,6 +1035,22 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
             *outValue = data->filterResonance;
             return noErr;
 
+        case kParam_EnvAttack:
+            *outValue = data->envAttack;
+            return noErr;
+
+        case kParam_EnvDecay:
+            *outValue = data->envDecay;
+            return noErr;
+
+        case kParam_EnvSustain:
+            *outValue = data->envSustain;
+            return noErr;
+
+        case kParam_EnvRelease:
+            *outValue = data->envRelease;
+            return noErr;
+
         default:
             return kAudioUnitErr_InvalidParameter;
     }
@@ -997,6 +1080,8 @@ static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInst
                                  data->osc3.detune, data->osc3.volume);
             voice->SetFilterCutoff(data->filterCutoff);
             voice->SetFilterResonance(data->filterResonance);
+            voice->SetEnvelope(data->envAttack, data->envDecay,
+                              data->envSustain, data->envRelease);
 
             // Return note instance ID (use voice index + 1 to avoid 0)
             if (outNoteInstanceID) {
