@@ -25,7 +25,7 @@
         [self addSubview:titleLabel];
 
         // "Master Volume" label
-        volumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 110, 300, 20)];
+        volumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 118, 300, 20)];
         [volumeLabel setStringValue:@"Master Volume"];
         [volumeLabel setAlignment:NSTextAlignmentCenter];
         [volumeLabel setBezeled:NO];
@@ -36,8 +36,8 @@
         [volumeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:volumeLabel];
 
-        // Volume slider (horizontal)
-        volumeKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(50, 60, 200, 25)];
+        // Rotary knob control
+        volumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(110, 35, 80, 80)];
         [volumeKnob setMinValue:0.0];
         [volumeKnob setMaxValue:1.0];
 
@@ -54,7 +54,7 @@
         [self addSubview:volumeKnob];
 
         // Percentage display below knob
-        percentageDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 20, 300, 20)];
+        percentageDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 10, 300, 20)];
         [percentageDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialValue * 100.0]];
         [percentageDisplay setAlignment:NSTextAlignmentCenter];
         [percentageDisplay setBezeled:NO];

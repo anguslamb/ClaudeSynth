@@ -2,11 +2,12 @@
 #import <AudioUnit/AudioUnit.h>
 #import <AudioUnit/AUCocoaUIView.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import "RotaryKnob.h"
 
 @interface ClaudeSynthView : NSView
 {
     AudioUnit mAU;
-    NSSlider *volumeKnob;
+    RotaryKnob *volumeKnob;
     NSTextField *titleLabel;
     NSTextField *volumeLabel;
     NSTextField *percentageDisplay;
