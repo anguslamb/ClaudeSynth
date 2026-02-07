@@ -10,6 +10,7 @@ CXXFLAGS = -std=c++11 -arch x86_64 -arch arm64 \
            -mmacosx-version-min=10.13 \
            -fvisibility=hidden \
            -fvisibility-inlines-hidden \
+           -fobjc-arc \
            -O2 \
            -isysroot $(SDK_PATH)
 
@@ -25,7 +26,8 @@ FRAMEWORKS = -framework AudioUnit \
              -framework QuartzCore
 
 # Source files
-SOURCES = Source/ClaudeSynth.cpp
+SOURCES = Source/ClaudeSynth.cpp \
+          Source/ClaudeSynthView.mm
 
 # Bundle structure
 BUNDLE_DIR = build/$(PLUGIN_NAME).component

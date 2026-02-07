@@ -45,6 +45,12 @@ static OSStatus ClaudeSynth_MIDIEvent(void *inRefCon,
                                        UInt32 inData1,
                                        UInt32 inData2,
                                        UInt32 inStartFrame);
+static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
+                                          AudioUnitScope inScope, AudioUnitElement inElement,
+                                          AudioUnitParameterValue inValue, UInt32 inBufferOffsetInFrames);
+static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
+                                          AudioUnitScope inScope, AudioUnitElement inElement,
+                                          AudioUnitParameterValue *outValue);
 
 // Factory function
 extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const AudioComponentDescription *inDesc) {
@@ -70,6 +76,10 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
     data->streamFormat.mBytesPerFrame = sizeof(Float32);
     data->streamFormat.mChannelsPerFrame = 2;
     data->streamFormat.mBitsPerChannel = sizeof(Float32) * 8;
+
+    // Initialize parameters
+    data->masterVolume = 1.0f;
+    ClaudeLog("Factory: initialized masterVolume to %f", data->masterVolume);
 
     return &data->pluginInterface;
 }
@@ -108,6 +118,10 @@ static AudioComponentMethod ClaudeSynth_Lookup(SInt16 selector) {
             return (AudioComponentMethod)ClaudeSynth_Reset;
         case kMusicDeviceMIDIEventSelect:
             return (AudioComponentMethod)ClaudeSynth_MIDIEvent;
+        case kAudioUnitSetParameterSelect:
+            return (AudioComponentMethod)ClaudeSynth_SetParameter;
+        case kAudioUnitGetParameterSelect:
+            return (AudioComponentMethod)ClaudeSynth_GetParameter;
         default:
             return NULL;
     }
@@ -152,15 +166,20 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            // No parameters
-            if (outDataSize) *outDataSize = 0;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 1;
+            if (outWritable) *outWritable = 0;
+            return noErr;
+
+        case kAudioUnitProperty_ParameterInfo:
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterInfo);
             if (outWritable) *outWritable = 0;
             return noErr;
 
         case kAudioUnitProperty_CocoaUI:
         case 3002: // kAudioUnitProperty_GetUIComponentList
-            // No custom UI
-            return kAudioUnitErr_InvalidProperty;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitCocoaViewInfo);
+            if (outWritable) *outWritable = 0;
+            return noErr;
 
         case kAudioUnitProperty_MaximumFramesPerSlice:
             if (outDataSize) *outDataSize = sizeof(UInt32);
@@ -262,17 +281,58 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            // No parameters
-            *ioDataSize = 0;
+            if (*ioDataSize < sizeof(AudioUnitParameterID))
+                return kAudioUnitErr_InvalidParameter;
+            {
+                AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
+                paramList[0] = kParam_MasterVolume;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 1;
+            }
             return noErr;
 
         case kAudioUnitProperty_ParameterInfo:
-            // No parameters to describe
+            if (*ioDataSize < sizeof(AudioUnitParameterInfo))
+                return kAudioUnitErr_InvalidParameter;
+            if (inScope != kAudioUnitScope_Global)
+                return kAudioUnitErr_InvalidScope;
+            if (inElement == kParam_MasterVolume) {
+                AudioUnitParameterInfo *info = (AudioUnitParameterInfo *)outData;
+                memset(info, 0, sizeof(AudioUnitParameterInfo));
+                info->flags = kAudioUnitParameterFlag_IsWritable |
+                              kAudioUnitParameterFlag_IsReadable |
+                              kAudioUnitParameterFlag_HasCFNameString;
+                info->unit = kAudioUnitParameterUnit_LinearGain;
+                info->minValue = 0.0f;
+                info->maxValue = 1.0f;
+                info->defaultValue = 1.0f;
+                CFStringRef name = CFStringCreateWithCString(NULL, "Master Volume", kCFStringEncodingUTF8);
+                info->cfNameString = name;
+                *ioDataSize = sizeof(AudioUnitParameterInfo);
+                return noErr;
+            }
             return kAudioUnitErr_InvalidParameter;
 
         case kAudioUnitProperty_CocoaUI:
         case 3002: // kAudioUnitProperty_GetUIComponentList
-            // No custom UI - Logic will show generic parameter view
+            if (*ioDataSize < sizeof(AudioUnitCocoaViewInfo))
+                return kAudioUnitErr_InvalidParameter;
+            {
+                AudioUnitCocoaViewInfo *viewInfo = (AudioUnitCocoaViewInfo *)outData;
+
+                // Get the bundle containing this plugin
+                CFBundleRef bundle = CFBundleGetBundleWithIdentifier(CFSTR("com.demo.audiounit.ClaudeSynth"));
+                if (bundle) {
+                    CFURLRef bundleURL = CFBundleCopyBundleURL(bundle);
+                    viewInfo->mCocoaAUViewBundleLocation = bundleURL;
+
+                    // Factory class name
+                    CFStringRef factoryClassName = CFStringCreateWithCString(NULL, "ClaudeSynthViewFactory", kCFStringEncodingUTF8);
+                    viewInfo->mCocoaAUViewClass[0] = factoryClassName;
+
+                    *ioDataSize = sizeof(AudioUnitCocoaViewInfo);
+                    return noErr;
+                }
+            }
             return kAudioUnitErr_InvalidProperty;
 
         case 0x3C: // kAudioUnitProperty_OfflineRender or similar
@@ -446,10 +506,11 @@ static OSStatus ClaudeSynth_Render(void *self,
             }
         }
 
-        // Output to both channels (mono to stereo)
-        left[frame] = sample;
+        // Apply master volume and output to both channels
+        float volumedSample = sample * data->masterVolume;
+        left[frame] = volumedSample;
         if (right != left) {
-            right[frame] = sample;
+            right[frame] = volumedSample;
         }
     }
 
@@ -514,4 +575,40 @@ SynthVoice* FindVoiceForNote(ClaudeSynthData *data, int note) {
         }
     }
     return nullptr;
+}
+
+static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
+                                          AudioUnitScope inScope, AudioUnitElement inElement,
+                                          AudioUnitParameterValue inValue, UInt32 inBufferOffsetInFrames) {
+    ClaudeSynthData *data = (ClaudeSynthData *)self;
+
+    ClaudeLog("SetParameter: id=%d, scope=%d, value=%f", inID, inScope, inValue);
+
+    if (inScope != kAudioUnitScope_Global)
+        return kAudioUnitErr_InvalidScope;
+
+    if (inID == kParam_MasterVolume) {
+        data->masterVolume = inValue;
+        ClaudeLog("SetParameter: masterVolume set to %f", data->masterVolume);
+        return noErr;
+    }
+
+    return kAudioUnitErr_InvalidParameter;
+}
+
+static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
+                                          AudioUnitScope inScope, AudioUnitElement inElement,
+                                          AudioUnitParameterValue *outValue) {
+    ClaudeSynthData *data = (ClaudeSynthData *)self;
+
+    if (inScope != kAudioUnitScope_Global)
+        return kAudioUnitErr_InvalidScope;
+
+    if (inID == kParam_MasterVolume) {
+        *outValue = data->masterVolume;
+        ClaudeLog("GetParameter: returning masterVolume=%f", data->masterVolume);
+        return noErr;
+    }
+
+    return kAudioUnitErr_InvalidParameter;
 }

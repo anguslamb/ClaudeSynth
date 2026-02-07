@@ -6,6 +6,11 @@
 
 static const int kNumVoices = 16;
 
+// Parameter IDs
+enum {
+    kParam_MasterVolume = 0
+};
+
 struct ClaudeSynthData {
     AudioComponentPlugInInterface pluginInterface;  // Must be first!
     AudioComponentInstance componentInstance;
@@ -13,6 +18,7 @@ struct ClaudeSynthData {
     Float64 sampleRate;
     AudioStreamBasicDescription streamFormat;
     UInt32 maxFramesPerSlice;
+    float masterVolume;
 };
 
 // Helper functions
