@@ -85,7 +85,10 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
     // Initialize parameters
     data->masterVolume = 1.0f;
     data->waveform = 0; // Sine wave by default
-    ClaudeLog("Factory: initialized masterVolume to %f, waveform to %d", data->masterVolume, data->waveform);
+    data->filterCutoff = 20000.0f; // Wide open by default
+    data->filterResonance = 0.7f; // Mild resonance by default
+    ClaudeLog("Factory: initialized masterVolume to %f, waveform to %d, cutoff to %f, resonance to %f",
+              data->masterVolume, data->waveform, data->filterCutoff, data->filterResonance);
 
     return &data->pluginInterface;
 }
@@ -177,7 +180,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 2;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 4;
             if (outWritable) *outWritable = 0;
             return noErr;
 
@@ -308,13 +311,15 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID) * 2)
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 4)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
                 paramList[0] = kParam_MasterVolume;
                 paramList[1] = kParam_Waveform;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 2;
+                paramList[2] = kParam_FilterCutoff;
+                paramList[3] = kParam_FilterResonance;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 4;
             }
             return noErr;
 
@@ -347,6 +352,28 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     info->maxValue = 3.0f;
                     info->defaultValue = 0.0f;
                     info->cfNameString = CFStringCreateWithCString(NULL, "Waveform", kCFStringEncodingUTF8);
+                    *ioDataSize = sizeof(AudioUnitParameterInfo);
+                    return noErr;
+                } else if (inElement == kParam_FilterCutoff) {
+                    info->flags = kAudioUnitParameterFlag_IsWritable |
+                                  kAudioUnitParameterFlag_IsReadable |
+                                  kAudioUnitParameterFlag_HasCFNameString;
+                    info->unit = kAudioUnitParameterUnit_Hertz;
+                    info->minValue = 20.0f;
+                    info->maxValue = 20000.0f;
+                    info->defaultValue = 20000.0f;
+                    info->cfNameString = CFStringCreateWithCString(NULL, "Filter Cutoff", kCFStringEncodingUTF8);
+                    *ioDataSize = sizeof(AudioUnitParameterInfo);
+                    return noErr;
+                } else if (inElement == kParam_FilterResonance) {
+                    info->flags = kAudioUnitParameterFlag_IsWritable |
+                                  kAudioUnitParameterFlag_IsReadable |
+                                  kAudioUnitParameterFlag_HasCFNameString;
+                    info->unit = kAudioUnitParameterUnit_Generic;
+                    info->minValue = 0.5f;
+                    info->maxValue = 10.0f;
+                    info->defaultValue = 0.7f;
+                    info->cfNameString = CFStringCreateWithCString(NULL, "Filter Resonance", kCFStringEncodingUTF8);
                     *ioDataSize = sizeof(AudioUnitParameterInfo);
                     return noErr;
                 }
@@ -602,6 +629,8 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                 if (voice) {
                     voice->NoteOn(noteNumber, velocity, data->sampleRate);
                     voice->SetWaveform((Waveform)data->waveform);
+                    voice->SetFilterCutoff(data->filterCutoff);
+                    voice->SetFilterResonance(data->filterResonance);
                     ClaudeLog("  -> Voice allocated for note %d", noteNumber);
                 } else {
                     ClaudeLog("  -> ERROR: FindFreeVoice returned NULL!");
@@ -679,6 +708,28 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
         return noErr;
     }
 
+    if (inID == kParam_FilterCutoff) {
+        data->filterCutoff = inValue;
+        ClaudeLog("SetParameter: filterCutoff set to %f", data->filterCutoff);
+
+        // Update all voices with new filter cutoff
+        for (int i = 0; i < kNumVoices; i++) {
+            data->voices[i].SetFilterCutoff(data->filterCutoff);
+        }
+        return noErr;
+    }
+
+    if (inID == kParam_FilterResonance) {
+        data->filterResonance = inValue;
+        ClaudeLog("SetParameter: filterResonance set to %f", data->filterResonance);
+
+        // Update all voices with new filter resonance
+        for (int i = 0; i < kNumVoices; i++) {
+            data->voices[i].SetFilterResonance(data->filterResonance);
+        }
+        return noErr;
+    }
+
     return kAudioUnitErr_InvalidParameter;
 }
 
@@ -699,6 +750,18 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
     if (inID == kParam_Waveform) {
         *outValue = (float)data->waveform;
         ClaudeLog("GetParameter: returning waveform=%d", data->waveform);
+        return noErr;
+    }
+
+    if (inID == kParam_FilterCutoff) {
+        *outValue = data->filterCutoff;
+        ClaudeLog("GetParameter: returning filterCutoff=%f", data->filterCutoff);
+        return noErr;
+    }
+
+    if (inID == kParam_FilterResonance) {
+        *outValue = data->filterResonance;
+        ClaudeLog("GetParameter: returning filterResonance=%f", data->filterResonance);
         return noErr;
     }
 

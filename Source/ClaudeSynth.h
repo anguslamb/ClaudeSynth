@@ -9,7 +9,9 @@ static const int kNumVoices = 16;
 // Parameter IDs
 enum {
     kParam_MasterVolume = 0,
-    kParam_Waveform = 1
+    kParam_Waveform = 1,
+    kParam_FilterCutoff = 2,
+    kParam_FilterResonance = 3
 };
 
 struct ClaudeSynthData {
@@ -21,6 +23,8 @@ struct ClaudeSynthData {
     UInt32 maxFramesPerSlice;
     float masterVolume;
     int waveform;
+    float filterCutoff;
+    float filterResonance;
 };
 
 // Helper functions

@@ -12,7 +12,9 @@ enum Waveform {
 
 class SynthVoice {
 public:
-    SynthVoice() : mNote(-1), mVelocity(0), mPhase(0.0), mActive(false), mWaveform(kWaveform_Sine) {}
+    SynthVoice() : mNote(-1), mVelocity(0), mPhase(0.0), mActive(false), mWaveform(kWaveform_Sine),
+                   mFilterCutoff(20000.0f), mFilterResonance(0.5f),
+                   mLowpass(0.0f), mBandpass(0.0f) {}
 
     void NoteOn(int note, int velocity, double sampleRate) {
         mNote = note;
@@ -20,6 +22,10 @@ public:
         mSampleRate = sampleRate;
         mPhase = 0.0;
         mActive = true;
+
+        // Reset filter state
+        mLowpass = 0.0f;
+        mBandpass = 0.0f;
 
         // Convert MIDI note to frequency: 440 * 2^((note-69)/12)
         mFrequency = 440.0 * pow(2.0, (note - 69) / 12.0);
@@ -35,6 +41,14 @@ public:
 
     void SetWaveform(Waveform waveform) {
         mWaveform = waveform;
+    }
+
+    void SetFilterCutoff(float cutoff) {
+        mFilterCutoff = cutoff;
+    }
+
+    void SetFilterResonance(float resonance) {
+        mFilterResonance = resonance;
     }
 
     float RenderSample() {
@@ -69,6 +83,23 @@ public:
         // Apply velocity and scaling
         sample *= (mVelocity / 127.0f) * 0.5f;
 
+        // Apply low-pass filter (State Variable Filter)
+        // Bypass filter if cutoff is very high (essentially "off")
+        if (mFilterCutoff < mSampleRate * 0.4f) {
+            float f = 2.0f * sinf(M_PI * mFilterCutoff / mSampleRate);
+
+            // Clamp f to prevent instability
+            f = fminf(f, 0.99f);
+
+            float q = 1.0f / fmaxf(mFilterResonance, 0.5f);
+
+            mLowpass = mLowpass + f * mBandpass;
+            float highpass = sample - mLowpass - q * mBandpass;
+            mBandpass = f * highpass + mBandpass;
+
+            sample = mLowpass;
+        }
+
         // Advance phase
         mPhase += (mFrequency / mSampleRate) * 2.0 * M_PI;
 
@@ -88,6 +119,10 @@ private:
     double mSampleRate;
     bool mActive;
     Waveform mWaveform;
+    float mFilterCutoff;
+    float mFilterResonance;
+    float mLowpass;
+    float mBandpass;
 };
 
 #endif
