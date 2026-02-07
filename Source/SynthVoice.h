@@ -14,7 +14,8 @@ class SynthVoice {
 public:
     SynthVoice() : mNote(-1), mVelocity(0), mPhase(0.0), mActive(false), mWaveform(kWaveform_Sine),
                    mFilterCutoff(20000.0f), mFilterResonance(0.5f),
-                   mLowpass(0.0f), mBandpass(0.0f) {}
+                   mLowpass(0.0f), mBandpass(0.0f),
+                   mEnvelope(0.0f), mReleasing(false) {}
 
     void NoteOn(int note, int velocity, double sampleRate) {
         mNote = note;
@@ -22,18 +23,21 @@ public:
         mSampleRate = sampleRate;
         mPhase = 0.0;
         mActive = true;
+        mReleasing = false;
 
         // Reset filter state
         mLowpass = 0.0f;
         mBandpass = 0.0f;
+
+        // Reset envelope
+        mEnvelope = 0.0f;
 
         // Convert MIDI note to frequency: 440 * 2^((note-69)/12)
         mFrequency = 440.0 * pow(2.0, (note - 69) / 12.0);
     }
 
     void NoteOff() {
-        mActive = false;
-        mNote = -1;
+        mReleasing = true;
     }
 
     bool IsActive() const { return mActive; }
@@ -53,6 +57,32 @@ public:
 
     float RenderSample() {
         if (!mActive) return 0.0f;
+
+        // Update envelope
+        const float attackTime = 0.005f;  // 5ms attack
+        const float releaseTime = 0.05f;  // 50ms release
+
+        if (mReleasing) {
+            // Release phase - fade out
+            float releaseRate = 1.0f / (releaseTime * mSampleRate);
+            mEnvelope -= releaseRate;
+
+            if (mEnvelope <= 0.0f) {
+                mEnvelope = 0.0f;
+                mActive = false;
+                mNote = -1;
+                return 0.0f;
+            }
+        } else {
+            // Attack phase - fade in
+            if (mEnvelope < 1.0f) {
+                float attackRate = 1.0f / (attackTime * mSampleRate);
+                mEnvelope += attackRate;
+                if (mEnvelope > 1.0f) {
+                    mEnvelope = 1.0f;
+                }
+            }
+        }
 
         float sample = 0.0f;
         float normalizedPhase = mPhase / (2.0 * M_PI); // 0.0 to 1.0
@@ -80,8 +110,11 @@ public:
                 break;
         }
 
-        // Apply velocity and scaling
-        sample *= (mVelocity / 127.0f) * 0.5f;
+        // Apply velocity and scaling (reduced from 0.5f to 0.15f to prevent clipping)
+        sample *= (mVelocity / 127.0f) * 0.15f;
+
+        // Apply envelope
+        sample *= mEnvelope;
 
         // Apply low-pass filter (State Variable Filter)
         // Bypass filter if cutoff is very high (essentially "off")
@@ -123,6 +156,8 @@ private:
     float mFilterResonance;
     float mLowpass;
     float mBandpass;
+    float mEnvelope;
+    bool mReleasing;
 };
 
 #endif
