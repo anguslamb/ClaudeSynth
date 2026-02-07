@@ -50,6 +50,18 @@
     [outerCircle setLineWidth:1.0];
     [outerCircle stroke];
 
+    // Draw range markers
+    if (self.bipolar) {
+        // Bipolar: marks at min (225°), center (90°), max (315°)
+        [self drawRangeMarkerAtAngle:225.0 centerX:centerX centerY:centerY radius:radius];
+        [self drawRangeMarkerAtAngle:90.0 centerX:centerX centerY:centerY radius:radius]; // Center mark
+        [self drawRangeMarkerAtAngle:315.0 centerX:centerX centerY:centerY radius:radius];
+    } else {
+        // Normal: marks at min (210°) and max (330°)
+        [self drawRangeMarkerAtAngle:210.0 centerX:centerX centerY:centerY radius:radius];
+        [self drawRangeMarkerAtAngle:330.0 centerX:centerX centerY:centerY radius:radius];
+    }
+
     // Calculate indicator angle
     double normalizedValue = (self.doubleValue - self.minValue) / (self.maxValue - self.minValue);
     double angle;
@@ -100,6 +112,27 @@
         NSMakeRect(centerX - dotRadius, centerY - dotRadius, dotRadius * 2, dotRadius * 2)];
     [[NSColor colorWithWhite:0.3 alpha:1.0] setFill];
     [centerDot fill];
+}
+
+- (void)drawRangeMarkerAtAngle:(double)angle centerX:(CGFloat)centerX centerY:(CGFloat)centerY radius:(CGFloat)radius {
+    double angleRad = angle * M_PI / 180.0;
+
+    // Draw a small line on the outer edge
+    CGFloat outerRadius = radius + 2.0;
+    CGFloat innerRadius = radius - 2.0;
+
+    CGFloat outerX = centerX + cos(angleRad) * outerRadius;
+    CGFloat outerY = centerY + sin(angleRad) * outerRadius;
+    CGFloat innerX = centerX + cos(angleRad) * innerRadius;
+    CGFloat innerY = centerY + sin(angleRad) * innerRadius;
+
+    NSBezierPath *marker = [NSBezierPath bezierPath];
+    [marker moveToPoint:NSMakePoint(innerX, innerY)];
+    [marker lineToPoint:NSMakePoint(outerX, outerY)];
+    [[NSColor colorWithWhite:0.6 alpha:0.7] setStroke];
+    [marker setLineWidth:2.0];
+    [marker setLineCapStyle:NSLineCapStyleRound];
+    [marker stroke];
 }
 
 - (void)mouseDown:(NSEvent *)event {
