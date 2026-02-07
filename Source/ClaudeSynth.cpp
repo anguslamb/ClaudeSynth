@@ -84,11 +84,28 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
 
     // Initialize parameters
     data->masterVolume = 1.0f;
-    data->waveform = 0; // Sine wave by default
+
+    // Oscillator 1 (active by default)
+    data->osc1.waveform = kWaveform_Sine;
+    data->osc1.octave = 0;
+    data->osc1.detune = 0.0f;
+    data->osc1.volume = 1.0f;
+
+    // Oscillator 2 (silent by default)
+    data->osc2.waveform = kWaveform_Sine;
+    data->osc2.octave = 0;
+    data->osc2.detune = 0.0f;
+    data->osc2.volume = 0.0f;
+
+    // Oscillator 3 (silent by default)
+    data->osc3.waveform = kWaveform_Sine;
+    data->osc3.octave = 0;
+    data->osc3.detune = 0.0f;
+    data->osc3.volume = 0.0f;
+
     data->filterCutoff = 20000.0f; // Wide open by default
     data->filterResonance = 0.7f; // Mild resonance by default
-    ClaudeLog("Factory: initialized masterVolume to %f, waveform to %d, cutoff to %f, resonance to %f",
-              data->masterVolume, data->waveform, data->filterCutoff, data->filterResonance);
+    ClaudeLog("Factory: initialized parameters");
 
     return &data->pluginInterface;
 }
@@ -180,7 +197,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 4;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 15;
             if (outWritable) *outWritable = 0;
             return noErr;
 
@@ -311,15 +328,26 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID) * 4)
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 15)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
                 paramList[0] = kParam_MasterVolume;
-                paramList[1] = kParam_Waveform;
-                paramList[2] = kParam_FilterCutoff;
-                paramList[3] = kParam_FilterResonance;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 4;
+                paramList[1] = kParam_Osc1_Waveform;
+                paramList[2] = kParam_Osc1_Octave;
+                paramList[3] = kParam_Osc1_Detune;
+                paramList[4] = kParam_Osc1_Volume;
+                paramList[5] = kParam_Osc2_Waveform;
+                paramList[6] = kParam_Osc2_Octave;
+                paramList[7] = kParam_Osc2_Detune;
+                paramList[8] = kParam_Osc2_Volume;
+                paramList[9] = kParam_Osc3_Waveform;
+                paramList[10] = kParam_Osc3_Octave;
+                paramList[11] = kParam_Osc3_Detune;
+                paramList[12] = kParam_Osc3_Volume;
+                paramList[13] = kParam_FilterCutoff;
+                paramList[14] = kParam_FilterResonance;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 15;
             }
             return noErr;
 
@@ -331,54 +359,138 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             {
                 AudioUnitParameterInfo *info = (AudioUnitParameterInfo *)outData;
                 memset(info, 0, sizeof(AudioUnitParameterInfo));
+                info->flags = kAudioUnitParameterFlag_IsWritable |
+                              kAudioUnitParameterFlag_IsReadable |
+                              kAudioUnitParameterFlag_HasCFNameString;
 
-                if (inElement == kParam_MasterVolume) {
-                    info->flags = kAudioUnitParameterFlag_IsWritable |
-                                  kAudioUnitParameterFlag_IsReadable |
-                                  kAudioUnitParameterFlag_HasCFNameString;
-                    info->unit = kAudioUnitParameterUnit_LinearGain;
-                    info->minValue = 0.0f;
-                    info->maxValue = 1.0f;
-                    info->defaultValue = 1.0f;
-                    info->cfNameString = CFStringCreateWithCString(NULL, "Master Volume", kCFStringEncodingUTF8);
-                    *ioDataSize = sizeof(AudioUnitParameterInfo);
-                    return noErr;
-                } else if (inElement == kParam_Waveform) {
-                    info->flags = kAudioUnitParameterFlag_IsWritable |
-                                  kAudioUnitParameterFlag_IsReadable |
-                                  kAudioUnitParameterFlag_HasCFNameString;
-                    info->unit = kAudioUnitParameterUnit_Indexed;
-                    info->minValue = 0.0f;
-                    info->maxValue = 3.0f;
-                    info->defaultValue = 0.0f;
-                    info->cfNameString = CFStringCreateWithCString(NULL, "Waveform", kCFStringEncodingUTF8);
-                    *ioDataSize = sizeof(AudioUnitParameterInfo);
-                    return noErr;
-                } else if (inElement == kParam_FilterCutoff) {
-                    info->flags = kAudioUnitParameterFlag_IsWritable |
-                                  kAudioUnitParameterFlag_IsReadable |
-                                  kAudioUnitParameterFlag_HasCFNameString;
-                    info->unit = kAudioUnitParameterUnit_Hertz;
-                    info->minValue = 20.0f;
-                    info->maxValue = 20000.0f;
-                    info->defaultValue = 20000.0f;
-                    info->cfNameString = CFStringCreateWithCString(NULL, "Filter Cutoff", kCFStringEncodingUTF8);
-                    *ioDataSize = sizeof(AudioUnitParameterInfo);
-                    return noErr;
-                } else if (inElement == kParam_FilterResonance) {
-                    info->flags = kAudioUnitParameterFlag_IsWritable |
-                                  kAudioUnitParameterFlag_IsReadable |
-                                  kAudioUnitParameterFlag_HasCFNameString;
-                    info->unit = kAudioUnitParameterUnit_Generic;
-                    info->minValue = 0.5f;
-                    info->maxValue = 10.0f;
-                    info->defaultValue = 0.7f;
-                    info->cfNameString = CFStringCreateWithCString(NULL, "Filter Resonance", kCFStringEncodingUTF8);
-                    *ioDataSize = sizeof(AudioUnitParameterInfo);
-                    return noErr;
+                switch (inElement) {
+                    case kParam_MasterVolume:
+                        info->unit = kAudioUnitParameterUnit_LinearGain;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 1.0f;
+                        info->cfNameString = CFSTR("Master Volume");
+                        break;
+
+                    case kParam_Osc1_Waveform:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 3.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 1 Waveform");
+                        break;
+
+                    case kParam_Osc1_Octave:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = -2.0f;
+                        info->maxValue = 2.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 1 Octave");
+                        break;
+
+                    case kParam_Osc1_Detune:
+                        info->unit = kAudioUnitParameterUnit_Cents;
+                        info->minValue = -100.0f;
+                        info->maxValue = 100.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 1 Detune");
+                        break;
+
+                    case kParam_Osc1_Volume:
+                        info->unit = kAudioUnitParameterUnit_LinearGain;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 1.0f;
+                        info->cfNameString = CFSTR("Osc 1 Volume");
+                        break;
+
+                    case kParam_Osc2_Waveform:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 3.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 2 Waveform");
+                        break;
+
+                    case kParam_Osc2_Octave:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = -2.0f;
+                        info->maxValue = 2.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 2 Octave");
+                        break;
+
+                    case kParam_Osc2_Detune:
+                        info->unit = kAudioUnitParameterUnit_Cents;
+                        info->minValue = -100.0f;
+                        info->maxValue = 100.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 2 Detune");
+                        break;
+
+                    case kParam_Osc2_Volume:
+                        info->unit = kAudioUnitParameterUnit_LinearGain;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 2 Volume");
+                        break;
+
+                    case kParam_Osc3_Waveform:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 3.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 3 Waveform");
+                        break;
+
+                    case kParam_Osc3_Octave:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = -2.0f;
+                        info->maxValue = 2.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 3 Octave");
+                        break;
+
+                    case kParam_Osc3_Detune:
+                        info->unit = kAudioUnitParameterUnit_Cents;
+                        info->minValue = -100.0f;
+                        info->maxValue = 100.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 3 Detune");
+                        break;
+
+                    case kParam_Osc3_Volume:
+                        info->unit = kAudioUnitParameterUnit_LinearGain;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Osc 3 Volume");
+                        break;
+
+                    case kParam_FilterCutoff:
+                        info->unit = kAudioUnitParameterUnit_Hertz;
+                        info->minValue = 20.0f;
+                        info->maxValue = 20000.0f;
+                        info->defaultValue = 20000.0f;
+                        info->cfNameString = CFSTR("Filter Cutoff");
+                        break;
+
+                    case kParam_FilterResonance:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = 0.5f;
+                        info->maxValue = 10.0f;
+                        info->defaultValue = 0.7f;
+                        info->cfNameString = CFSTR("Filter Resonance");
+                        break;
+
+                    default:
+                        return kAudioUnitErr_InvalidParameter;
                 }
+
+                *ioDataSize = sizeof(AudioUnitParameterInfo);
+                return noErr;
             }
-            return kAudioUnitErr_InvalidParameter;
 
         case kAudioUnitProperty_CocoaUI:
         case 3002: // kAudioUnitProperty_GetUIComponentList
@@ -628,7 +740,12 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                 ClaudeLog("  -> FindFreeVoice returned %p", voice);
                 if (voice) {
                     voice->NoteOn(noteNumber, velocity, data->sampleRate);
-                    voice->SetWaveform((Waveform)data->waveform);
+                    voice->SetOscillator1(data->osc1.waveform, data->osc1.octave,
+                                         data->osc1.detune, data->osc1.volume);
+                    voice->SetOscillator2(data->osc2.waveform, data->osc2.octave,
+                                         data->osc2.detune, data->osc2.volume);
+                    voice->SetOscillator3(data->osc3.waveform, data->osc3.octave,
+                                         data->osc3.detune, data->osc3.volume);
                     voice->SetFilterCutoff(data->filterCutoff);
                     voice->SetFilterResonance(data->filterResonance);
                     ClaudeLog("  -> Voice allocated for note %d", noteNumber);
@@ -681,56 +798,105 @@ SynthVoice* FindVoiceForNote(ClaudeSynthData *data, int note) {
     return nullptr;
 }
 
+static void UpdateAllVoices(ClaudeSynthData *data) {
+    for (int i = 0; i < kNumVoices; i++) {
+        data->voices[i].SetOscillator1(data->osc1.waveform, data->osc1.octave,
+                                       data->osc1.detune, data->osc1.volume);
+        data->voices[i].SetOscillator2(data->osc2.waveform, data->osc2.octave,
+                                       data->osc2.detune, data->osc2.volume);
+        data->voices[i].SetOscillator3(data->osc3.waveform, data->osc3.octave,
+                                       data->osc3.detune, data->osc3.volume);
+        data->voices[i].SetFilterCutoff(data->filterCutoff);
+        data->voices[i].SetFilterResonance(data->filterResonance);
+    }
+}
+
 static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
                                           AudioUnitScope inScope, AudioUnitElement inElement,
                                           AudioUnitParameterValue inValue, UInt32 inBufferOffsetInFrames) {
     ClaudeSynthData *data = (ClaudeSynthData *)self;
 
-    ClaudeLog("SetParameter: id=%d, scope=%d, value=%f", inID, inScope, inValue);
-
     if (inScope != kAudioUnitScope_Global)
         return kAudioUnitErr_InvalidScope;
 
-    if (inID == kParam_MasterVolume) {
-        data->masterVolume = inValue;
-        ClaudeLog("SetParameter: masterVolume set to %f", data->masterVolume);
-        return noErr;
+    switch (inID) {
+        case kParam_MasterVolume:
+            data->masterVolume = inValue;
+            return noErr;
+
+        case kParam_Osc1_Waveform:
+            data->osc1.waveform = (int)inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc1_Octave:
+            data->osc1.octave = (int)inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc1_Detune:
+            data->osc1.detune = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc1_Volume:
+            data->osc1.volume = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc2_Waveform:
+            data->osc2.waveform = (int)inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc2_Octave:
+            data->osc2.octave = (int)inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc2_Detune:
+            data->osc2.detune = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc2_Volume:
+            data->osc2.volume = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc3_Waveform:
+            data->osc3.waveform = (int)inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc3_Octave:
+            data->osc3.octave = (int)inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc3_Detune:
+            data->osc3.detune = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_Osc3_Volume:
+            data->osc3.volume = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_FilterCutoff:
+            data->filterCutoff = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_FilterResonance:
+            data->filterResonance = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        default:
+            return kAudioUnitErr_InvalidParameter;
     }
-
-    if (inID == kParam_Waveform) {
-        data->waveform = (int)inValue;
-        ClaudeLog("SetParameter: waveform set to %d", data->waveform);
-
-        // Update all voices with new waveform
-        for (int i = 0; i < kNumVoices; i++) {
-            data->voices[i].SetWaveform((Waveform)data->waveform);
-        }
-        return noErr;
-    }
-
-    if (inID == kParam_FilterCutoff) {
-        data->filterCutoff = inValue;
-        ClaudeLog("SetParameter: filterCutoff set to %f", data->filterCutoff);
-
-        // Update all voices with new filter cutoff
-        for (int i = 0; i < kNumVoices; i++) {
-            data->voices[i].SetFilterCutoff(data->filterCutoff);
-        }
-        return noErr;
-    }
-
-    if (inID == kParam_FilterResonance) {
-        data->filterResonance = inValue;
-        ClaudeLog("SetParameter: filterResonance set to %f", data->filterResonance);
-
-        // Update all voices with new filter resonance
-        for (int i = 0; i < kNumVoices; i++) {
-            data->voices[i].SetFilterResonance(data->filterResonance);
-        }
-        return noErr;
-    }
-
-    return kAudioUnitErr_InvalidParameter;
 }
 
 static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
@@ -741,31 +907,70 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
     if (inScope != kAudioUnitScope_Global)
         return kAudioUnitErr_InvalidScope;
 
-    if (inID == kParam_MasterVolume) {
-        *outValue = data->masterVolume;
-        ClaudeLog("GetParameter: returning masterVolume=%f", data->masterVolume);
-        return noErr;
-    }
+    switch (inID) {
+        case kParam_MasterVolume:
+            *outValue = data->masterVolume;
+            return noErr;
 
-    if (inID == kParam_Waveform) {
-        *outValue = (float)data->waveform;
-        ClaudeLog("GetParameter: returning waveform=%d", data->waveform);
-        return noErr;
-    }
+        case kParam_Osc1_Waveform:
+            *outValue = (float)data->osc1.waveform;
+            return noErr;
 
-    if (inID == kParam_FilterCutoff) {
-        *outValue = data->filterCutoff;
-        ClaudeLog("GetParameter: returning filterCutoff=%f", data->filterCutoff);
-        return noErr;
-    }
+        case kParam_Osc1_Octave:
+            *outValue = (float)data->osc1.octave;
+            return noErr;
 
-    if (inID == kParam_FilterResonance) {
-        *outValue = data->filterResonance;
-        ClaudeLog("GetParameter: returning filterResonance=%f", data->filterResonance);
-        return noErr;
-    }
+        case kParam_Osc1_Detune:
+            *outValue = data->osc1.detune;
+            return noErr;
 
-    return kAudioUnitErr_InvalidParameter;
+        case kParam_Osc1_Volume:
+            *outValue = data->osc1.volume;
+            return noErr;
+
+        case kParam_Osc2_Waveform:
+            *outValue = (float)data->osc2.waveform;
+            return noErr;
+
+        case kParam_Osc2_Octave:
+            *outValue = (float)data->osc2.octave;
+            return noErr;
+
+        case kParam_Osc2_Detune:
+            *outValue = data->osc2.detune;
+            return noErr;
+
+        case kParam_Osc2_Volume:
+            *outValue = data->osc2.volume;
+            return noErr;
+
+        case kParam_Osc3_Waveform:
+            *outValue = (float)data->osc3.waveform;
+            return noErr;
+
+        case kParam_Osc3_Octave:
+            *outValue = (float)data->osc3.octave;
+            return noErr;
+
+        case kParam_Osc3_Detune:
+            *outValue = data->osc3.detune;
+            return noErr;
+
+        case kParam_Osc3_Volume:
+            *outValue = data->osc3.volume;
+            return noErr;
+
+        case kParam_FilterCutoff:
+            *outValue = data->filterCutoff;
+            return noErr;
+
+        case kParam_FilterResonance:
+            *outValue = data->filterResonance;
+            return noErr;
+
+        default:
+            return kAudioUnitErr_InvalidParameter;
+    }
 }
 
 static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInstrument,
@@ -784,6 +989,14 @@ static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInst
         SynthVoice *voice = FindFreeVoice(data);
         if (voice) {
             voice->NoteOn(noteNumber, velocity, data->sampleRate);
+            voice->SetOscillator1(data->osc1.waveform, data->osc1.octave,
+                                 data->osc1.detune, data->osc1.volume);
+            voice->SetOscillator2(data->osc2.waveform, data->osc2.octave,
+                                 data->osc2.detune, data->osc2.volume);
+            voice->SetOscillator3(data->osc3.waveform, data->osc3.octave,
+                                 data->osc3.detune, data->osc3.volume);
+            voice->SetFilterCutoff(data->filterCutoff);
+            voice->SetFilterResonance(data->filterResonance);
 
             // Return note instance ID (use voice index + 1 to avoid 0)
             if (outNoteInstanceID) {
