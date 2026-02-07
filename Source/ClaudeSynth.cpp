@@ -51,6 +51,11 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
 static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
                                           AudioUnitScope inScope, AudioUnitElement inElement,
                                           AudioUnitParameterValue *outValue);
+static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInstrument,
+                                       MusicDeviceGroupID inGroupID, NoteInstanceID *outNoteInstanceID,
+                                       UInt32 inOffsetSampleFrame, const MusicDeviceNoteParams *inParams);
+static OSStatus ClaudeSynth_StopNote(void *self, MusicDeviceGroupID inGroupID,
+                                      NoteInstanceID inNoteInstanceID, UInt32 inOffsetSampleFrame);
 
 // Factory function
 extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const AudioComponentDescription *inDesc) {
@@ -102,6 +107,7 @@ static OSStatus ClaudeSynth_Close(void *self) {
 }
 
 static AudioComponentMethod ClaudeSynth_Lookup(SInt16 selector) {
+    ClaudeLog("Lookup: selector=%d (0x%X)", selector, selector);
     switch (selector) {
         case kAudioUnitInitializeSelect:
             return (AudioComponentMethod)ClaudeSynth_Initialize;
@@ -123,6 +129,10 @@ static AudioComponentMethod ClaudeSynth_Lookup(SInt16 selector) {
             return (AudioComponentMethod)ClaudeSynth_SetParameter;
         case kAudioUnitGetParameterSelect:
             return (AudioComponentMethod)ClaudeSynth_GetParameter;
+        case kMusicDeviceStartNoteSelect:
+            return (AudioComponentMethod)ClaudeSynth_StartNote;
+        case kMusicDeviceStopNoteSelect:
+            return (AudioComponentMethod)ClaudeSynth_StopNote;
         default:
             return NULL;
     }
@@ -202,7 +212,23 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             if (outWritable) *outWritable = 0;
             return noErr;
 
+        case kAudioUnitProperty_ShouldAllocateBuffer:
+            if (outDataSize) *outDataSize = sizeof(UInt32);
+            if (outWritable) *outWritable = 1;
+            return noErr;
+
+        case kAudioUnitProperty_MIDIOutputCallbackInfo:
+            if (outDataSize) *outDataSize = sizeof(CFArrayRef);
+            if (outWritable) *outWritable = 0;
+            return noErr;
+
+        case kMusicDeviceProperty_InstrumentCount:
+            if (outDataSize) *outDataSize = sizeof(UInt32);
+            if (outWritable) *outWritable = 0;
+            return noErr;
+
         default:
+            ClaudeLog("GetPropertyInfo: UNKNOWN property 0x%X returning InvalidProperty", (unsigned int)inID);
             return kAudioUnitErr_InvalidProperty;
     }
 }
@@ -350,9 +376,32 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             }
             return kAudioUnitErr_InvalidProperty;
 
+        case kAudioUnitProperty_ShouldAllocateBuffer:
+            if (*ioDataSize < sizeof(UInt32))
+                return kAudioUnitErr_InvalidParameter;
+            // Music devices should allocate their own buffers
+            *(UInt32 *)outData = 1;
+            *ioDataSize = sizeof(UInt32);
+            return noErr;
+
+        case kAudioUnitProperty_MIDIOutputCallbackInfo:
+            // Return empty array - we accept MIDI input but don't produce MIDI output
+            if (*ioDataSize < sizeof(CFArrayRef))
+                return kAudioUnitErr_InvalidParameter;
+            *(CFArrayRef *)outData = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
+            *ioDataSize = sizeof(CFArrayRef);
+            return noErr;
+
+        case kMusicDeviceProperty_InstrumentCount:
+            // We are a single instrument
+            if (*ioDataSize < sizeof(UInt32))
+                return kAudioUnitErr_InvalidParameter;
+            *(UInt32 *)outData = 1;
+            *ioDataSize = sizeof(UInt32);
+            return noErr;
+
         case 0x3C: // kAudioUnitProperty_OfflineRender or similar
         case 0x1E: // kAudioUnitProperty_AudioChannelLayout
-        case 0x40: // kAudioUnitProperty_ShouldAllocateBuffer
         case 0x18A8B: // kAudioUnitProperty_SupportsMPE
             // Return not supported for these
             return kAudioUnitErr_InvalidProperty;
@@ -364,10 +413,9 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             // Optional properties - return not supported
             return kAudioUnitErr_InvalidProperty;
 
-        // Parameter and UI-related properties for plugins with no parameters/UI
+        // Parameter and UI-related properties
         case 0x1A: // kAudioUnitProperty_IconLocation
         case 0x1D: // kAudioUnitProperty_NickName
-        case 0x2F: // Unknown
         case 0x42: // Unknown
         case 0x3A: // kAudioUnitProperty_ParameterValueStrings
         case 0x18: // kAudioUnitProperty_ElementName
@@ -547,15 +595,24 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
 
     switch (status) {
         case 0x90: // Note On
+            ClaudeLog("  -> Case 0x90 matched, velocity=%d", velocity);
             if (velocity > 0) {
                 SynthVoice *voice = FindFreeVoice(data);
+                ClaudeLog("  -> FindFreeVoice returned %p", voice);
                 if (voice) {
                     voice->NoteOn(noteNumber, velocity, data->sampleRate);
+                    voice->SetWaveform((Waveform)data->waveform);
+                    ClaudeLog("  -> Voice allocated for note %d", noteNumber);
+                } else {
+                    ClaudeLog("  -> ERROR: FindFreeVoice returned NULL!");
                 }
             } else {
                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                 if (voice) {
                     voice->NoteOff();
+                    ClaudeLog("  -> Note off (vel=0) for note %d", noteNumber);
+                } else {
+                    ClaudeLog("  -> Note off (vel=0) for note %d - voice not found!", noteNumber);
                 }
             }
             break;
@@ -565,6 +622,9 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                 if (voice) {
                     voice->NoteOff();
+                    ClaudeLog("  -> Note off for note %d", noteNumber);
+                } else {
+                    ClaudeLog("  -> Note off for note %d - voice not found!", noteNumber);
                 }
             }
             break;
@@ -643,4 +703,51 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
     }
 
     return kAudioUnitErr_InvalidParameter;
+}
+
+static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInstrument,
+                                       MusicDeviceGroupID inGroupID, NoteInstanceID *outNoteInstanceID,
+                                       UInt32 inOffsetSampleFrame, const MusicDeviceNoteParams *inParams) {
+    ClaudeSynthData *data = (ClaudeSynthData *)self;
+
+    if (!inParams) return kAudioUnitErr_InvalidParameter;
+
+    UInt8 noteNumber = (UInt8)inParams->mPitch;
+    UInt8 velocity = (UInt8)inParams->mVelocity;
+
+    ClaudeLog("StartNote: note=%d, vel=%d, offset=%d", noteNumber, velocity, inOffsetSampleFrame);
+
+    if (velocity > 0) {
+        SynthVoice *voice = FindFreeVoice(data);
+        if (voice) {
+            voice->NoteOn(noteNumber, velocity, data->sampleRate);
+
+            // Return note instance ID (use voice index + 1 to avoid 0)
+            if (outNoteInstanceID) {
+                for (int i = 0; i < kNumVoices; i++) {
+                    if (&data->voices[i] == voice) {
+                        *outNoteInstanceID = i + 1;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return noErr;
+}
+
+static OSStatus ClaudeSynth_StopNote(void *self, MusicDeviceGroupID inGroupID,
+                                      NoteInstanceID inNoteInstanceID, UInt32 inOffsetSampleFrame) {
+    ClaudeSynthData *data = (ClaudeSynthData *)self;
+
+    ClaudeLog("StopNote: instanceID=%d, offset=%d", (int)inNoteInstanceID, inOffsetSampleFrame);
+
+    // Convert instance ID back to voice index
+    if (inNoteInstanceID > 0 && inNoteInstanceID <= kNumVoices) {
+        int voiceIndex = inNoteInstanceID - 1;
+        data->voices[voiceIndex].NoteOff();
+    }
+
+    return noErr;
 }
