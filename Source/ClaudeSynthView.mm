@@ -65,10 +65,16 @@
 
 @end
 
+@interface ClaudeSynthView()
+- (void)createOscillatorSection:(int)oscNum atX:(int)x;
+- (void)createLFOSectionAtX:(int)x;
+- (void)addWaveformIconsAtX:(int)x baseY:(int)baseY;
+@end
+
 @implementation ClaudeSynthView
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au {
-    self = [super initWithFrame:NSMakeRect(0, 0, 1080, 320)];
+    self = [super initWithFrame:NSMakeRect(0, 0, 1260, 320)];
     if (self) {
         mAU = au;
 
@@ -77,7 +83,7 @@
         self.layer.backgroundColor = [[NSColor colorWithWhite:0.15 alpha:1.0] CGColor];
 
         // Title label at top
-        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 280, 1080, 30)];
+        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 280, 1260, 30)];
         [titleLabel setStringValue:@"ClaudeSynth"];
         [titleLabel setAlignment:NSTextAlignmentCenter];
         [titleLabel setBezeled:NO];
@@ -88,15 +94,16 @@
         [titleLabel setTextColor:[NSColor whiteColor]];
         [self addSubview:titleLabel];
 
-        // Layout: 6 sections horizontally - Osc1, Osc2, Osc3, Filter, Envelope, Master
+        // Layout: 7 sections horizontally - Osc1, Osc2, Osc3, LFO, Filter, Envelope, Master
         // Each section is 180 pixels wide
         int sectionWidth = 180;
         int osc1X = 0;
         int osc2X = 180;
         int osc3X = 360;
-        int filterX = 540;
-        int envelopeX = 720;
-        int masterX = 900;
+        int lfoX = 540;
+        int filterX = 720;
+        int envelopeX = 900;
+        int masterX = 1080;
 
         // ===== OSCILLATOR 1 =====
         [self createOscillatorSection:1 atX:osc1X];
@@ -106,6 +113,9 @@
 
         // ===== OSCILLATOR 3 =====
         [self createOscillatorSection:3 atX:osc3X];
+
+        // ===== LFO SECTION =====
+        [self createLFOSectionAtX:lfoX];
 
         // ===== FILTER SECTION =====
         filterLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 255, 120, 20)];
@@ -656,6 +666,158 @@
     }
 }
 
+- (void)createLFOSectionAtX:(int)x {
+    // Section label
+    lfoLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 255, 120, 20)];
+    [lfoLabel setStringValue:@"LFO"];
+    [lfoLabel setAlignment:NSTextAlignmentCenter];
+    [lfoLabel setBezeled:NO];
+    [lfoLabel setDrawsBackground:NO];
+    [lfoLabel setEditable:NO];
+    [lfoLabel setSelectable:NO];
+    [lfoLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
+    [lfoLabel setTextColor:[NSColor whiteColor]];
+    [self addSubview:lfoLabel];
+
+    // Waveform selector (left side)
+    lfoWaveformLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 10, 220, 70, 16)];
+    [lfoWaveformLabel setStringValue:@"Waveform"];
+    [lfoWaveformLabel setAlignment:NSTextAlignmentCenter];
+    [lfoWaveformLabel setBezeled:NO];
+    [lfoWaveformLabel setDrawsBackground:NO];
+    [lfoWaveformLabel setEditable:NO];
+    [lfoWaveformLabel setSelectable:NO];
+    [lfoWaveformLabel setFont:[NSFont systemFontOfSize:10]];
+    [lfoWaveformLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:lfoWaveformLabel];
+
+    [self addWaveformIconsAtX:x + 15 baseY:150];
+
+    lfoWaveformKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 45, 150, 20, 60)];
+    [lfoWaveformKnob setMinValue:0];
+    [lfoWaveformKnob setMaxValue:3];
+    [lfoWaveformKnob setNumberOfTickMarks:4];
+    [lfoWaveformKnob setAllowsTickMarkValuesOnly:YES];
+    AudioUnitParameterValue initialLFOWaveform = 0.0f;
+    if (mAU) {
+        AudioUnitGetParameter(mAU, kParam_LFO_Waveform, kAudioUnitScope_Global, 0, &initialLFOWaveform);
+    }
+    [lfoWaveformKnob setIntValue:(int)initialLFOWaveform];
+    [lfoWaveformKnob setTarget:self];
+    [lfoWaveformKnob setAction:@selector(lfoWaveformChanged:)];
+    [lfoWaveformKnob setContinuous:YES];
+    [self addSubview:lfoWaveformKnob];
+
+    // Rate knob (top right)
+    lfoRateLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 220, 80, 16)];
+    [lfoRateLabel setStringValue:@"Rate"];
+    [lfoRateLabel setAlignment:NSTextAlignmentCenter];
+    [lfoRateLabel setBezeled:NO];
+    [lfoRateLabel setDrawsBackground:NO];
+    [lfoRateLabel setEditable:NO];
+    [lfoRateLabel setSelectable:NO];
+    [lfoRateLabel setFont:[NSFont systemFontOfSize:10]];
+    [lfoRateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:lfoRateLabel];
+
+    lfoRateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 155, 50, 50)];
+    [lfoRateKnob setMinValue:0.1];
+    [lfoRateKnob setMaxValue:20.0];
+    AudioUnitParameterValue initialLFORate = 5.0f;
+    if (mAU) {
+        AudioUnitGetParameter(mAU, kParam_LFO_Rate, kAudioUnitScope_Global, 0, &initialLFORate);
+    }
+    [lfoRateKnob setDoubleValue:initialLFORate];
+    [lfoRateKnob setTarget:self];
+    [lfoRateKnob setAction:@selector(lfoRateChanged:)];
+    [lfoRateKnob setContinuous:YES];
+    [self addSubview:lfoRateKnob];
+
+    lfoRateDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 135, 80, 16)];
+    [lfoRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", initialLFORate]];
+    [lfoRateDisplay setAlignment:NSTextAlignmentCenter];
+    [lfoRateDisplay setBezeled:NO];
+    [lfoRateDisplay setDrawsBackground:NO];
+    [lfoRateDisplay setEditable:NO];
+    [lfoRateDisplay setSelectable:NO];
+    [lfoRateDisplay setFont:[NSFont systemFontOfSize:10]];
+    [lfoRateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [self addSubview:lfoRateDisplay];
+
+    // Pitch Amount (bottom left)
+    lfoPitchAmountLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 100, 60, 16)];
+    [lfoPitchAmountLabel setStringValue:@"Pitch Amt"];
+    [lfoPitchAmountLabel setAlignment:NSTextAlignmentCenter];
+    [lfoPitchAmountLabel setBezeled:NO];
+    [lfoPitchAmountLabel setDrawsBackground:NO];
+    [lfoPitchAmountLabel setEditable:NO];
+    [lfoPitchAmountLabel setSelectable:NO];
+    [lfoPitchAmountLabel setFont:[NSFont systemFontOfSize:10]];
+    [lfoPitchAmountLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:lfoPitchAmountLabel];
+
+    lfoPitchAmountKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 45, 50, 50)];
+    [lfoPitchAmountKnob setMinValue:-100.0];
+    [lfoPitchAmountKnob setMaxValue:100.0];
+    [lfoPitchAmountKnob setBipolar:YES];
+    AudioUnitParameterValue initialLFOPitchAmount = 0.0f;
+    if (mAU) {
+        AudioUnitGetParameter(mAU, kParam_LFO_PitchAmount, kAudioUnitScope_Global, 0, &initialLFOPitchAmount);
+    }
+    [lfoPitchAmountKnob setDoubleValue:initialLFOPitchAmount];
+    [lfoPitchAmountKnob setTarget:self];
+    [lfoPitchAmountKnob setAction:@selector(lfoPitchAmountChanged:)];
+    [lfoPitchAmountKnob setContinuous:YES];
+    [self addSubview:lfoPitchAmountKnob];
+
+    lfoPitchAmountDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 25, 60, 16)];
+    [lfoPitchAmountDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", initialLFOPitchAmount]];
+    [lfoPitchAmountDisplay setAlignment:NSTextAlignmentCenter];
+    [lfoPitchAmountDisplay setBezeled:NO];
+    [lfoPitchAmountDisplay setDrawsBackground:NO];
+    [lfoPitchAmountDisplay setEditable:NO];
+    [lfoPitchAmountDisplay setSelectable:NO];
+    [lfoPitchAmountDisplay setFont:[NSFont systemFontOfSize:9]];
+    [lfoPitchAmountDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [self addSubview:lfoPitchAmountDisplay];
+
+    // Filter Amount (bottom right)
+    lfoFilterAmountLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 100, 60, 16)];
+    [lfoFilterAmountLabel setStringValue:@"Filter Amt"];
+    [lfoFilterAmountLabel setAlignment:NSTextAlignmentCenter];
+    [lfoFilterAmountLabel setBezeled:NO];
+    [lfoFilterAmountLabel setDrawsBackground:NO];
+    [lfoFilterAmountLabel setEditable:NO];
+    [lfoFilterAmountLabel setSelectable:NO];
+    [lfoFilterAmountLabel setFont:[NSFont systemFontOfSize:10]];
+    [lfoFilterAmountLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:lfoFilterAmountLabel];
+
+    lfoFilterAmountKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 45, 50, 50)];
+    [lfoFilterAmountKnob setMinValue:0.0];
+    [lfoFilterAmountKnob setMaxValue:10000.0];
+    AudioUnitParameterValue initialLFOFilterAmount = 0.0f;
+    if (mAU) {
+        AudioUnitGetParameter(mAU, kParam_LFO_FilterAmount, kAudioUnitScope_Global, 0, &initialLFOFilterAmount);
+    }
+    [lfoFilterAmountKnob setDoubleValue:initialLFOFilterAmount];
+    [lfoFilterAmountKnob setTarget:self];
+    [lfoFilterAmountKnob setAction:@selector(lfoFilterAmountChanged:)];
+    [lfoFilterAmountKnob setContinuous:YES];
+    [self addSubview:lfoFilterAmountKnob];
+
+    lfoFilterAmountDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 25, 60, 16)];
+    [lfoFilterAmountDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", initialLFOFilterAmount]];
+    [lfoFilterAmountDisplay setAlignment:NSTextAlignmentCenter];
+    [lfoFilterAmountDisplay setBezeled:NO];
+    [lfoFilterAmountDisplay setDrawsBackground:NO];
+    [lfoFilterAmountDisplay setEditable:NO];
+    [lfoFilterAmountDisplay setSelectable:NO];
+    [lfoFilterAmountDisplay setFont:[NSFont systemFontOfSize:9]];
+    [lfoFilterAmountDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [self addSubview:lfoFilterAmountDisplay];
+}
+
 - (void)dealloc {
     [updateTimer invalidate];
 }
@@ -847,6 +1009,38 @@
     }
 }
 
+// LFO
+- (void)lfoWaveformChanged:(id)sender {
+    int value = [lfoWaveformKnob intValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO_Waveform, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
+- (void)lfoRateChanged:(id)sender {
+    float value = [lfoRateKnob floatValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO_Rate, kAudioUnitScope_Global, 0, value, 0);
+    }
+    [lfoRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
+}
+
+- (void)lfoPitchAmountChanged:(id)sender {
+    float value = [lfoPitchAmountKnob floatValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO_PitchAmount, kAudioUnitScope_Global, 0, value, 0);
+    }
+    [lfoPitchAmountDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", value]];
+}
+
+- (void)lfoFilterAmountChanged:(id)sender {
+    float value = [lfoFilterAmountKnob floatValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO_FilterAmount, kAudioUnitScope_Global, 0, value, 0);
+    }
+    [lfoFilterAmountDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", value]];
+}
+
 - (void)updateFromHost:(NSTimer *)timer {
     if (!mAU) return;
 
@@ -956,6 +1150,31 @@
             } else {
                 [releaseDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(value * 1000)]];
             }
+        }
+    }
+
+    // Update LFO parameters
+    if (AudioUnitGetParameter(mAU, kParam_LFO_Waveform, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if ((int)value != [lfoWaveformKnob intValue]) {
+            [lfoWaveformKnob setIntValue:(int)value];
+        }
+    }
+    if (AudioUnitGetParameter(mAU, kParam_LFO_Rate, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [lfoRateKnob floatValue]) > 0.01f) {
+            [lfoRateKnob setFloatValue:value];
+            [lfoRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
+        }
+    }
+    if (AudioUnitGetParameter(mAU, kParam_LFO_PitchAmount, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [lfoPitchAmountKnob floatValue]) > 0.1f) {
+            [lfoPitchAmountKnob setFloatValue:value];
+            [lfoPitchAmountDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", value]];
+        }
+    }
+    if (AudioUnitGetParameter(mAU, kParam_LFO_FilterAmount, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [lfoFilterAmountKnob floatValue]) > 10.0f) {
+            [lfoFilterAmountKnob setFloatValue:value];
+            [lfoFilterAmountDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", value]];
         }
     }
 }

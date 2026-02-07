@@ -53,6 +53,11 @@ public:
         mOsc3.detune = 0.0f;
         mOsc3.volume = 0.0f;
         mOsc3.phase = 0.0;
+
+        mLFOWaveform = 0;
+        mLFORate = 5.0f;
+        mLFOPitchAmount = 0.0f;
+        mLFOFilterAmount = 0.0f;
     }
 
     void NoteOn(int note, int velocity, double sampleRate) {
@@ -121,7 +126,14 @@ public:
         mEnvRelease = release;
     }
 
-    float RenderSample() {
+    void SetLFO(int waveform, float rate, float pitchAmount, float filterAmount) {
+        mLFOWaveform = waveform;
+        mLFORate = rate;
+        mLFOPitchAmount = pitchAmount;
+        mLFOFilterAmount = filterAmount;
+    }
+
+    float RenderSample(float lfoValue) {
         if (!mActive) return 0.0f;
 
         // Generate and mix three oscillators
@@ -150,10 +162,14 @@ public:
 
         float sample = mixedSample;
 
+        // Apply LFO to filter cutoff
+        float modulatedCutoff = mFilterCutoff + (lfoValue * mLFOFilterAmount);
+        modulatedCutoff = fmaxf(20.0f, fminf(modulatedCutoff, mSampleRate * 0.5f)); // Clamp
+
         // Apply low-pass filter (State Variable Filter)
         // Bypass filter if cutoff is very high (essentially "off")
-        if (mFilterCutoff < mSampleRate * 0.4f) {
-            float f = 2.0f * sinf(M_PI * mFilterCutoff / mSampleRate);
+        if (modulatedCutoff < mSampleRate * 0.4f) {
+            float f = 2.0f * sinf(M_PI * modulatedCutoff / mSampleRate);
 
             // Clamp f to prevent instability
             f = fminf(f, 0.99f);
@@ -172,9 +188,9 @@ public:
         sample *= mEnvelopeLevel;
 
         // Advance phases for all oscillators
-        AdvanceOscillatorPhase(mOsc1);
-        AdvanceOscillatorPhase(mOsc2);
-        AdvanceOscillatorPhase(mOsc3);
+        AdvanceOscillatorPhase(mOsc1, lfoValue);
+        AdvanceOscillatorPhase(mOsc2, lfoValue);
+        AdvanceOscillatorPhase(mOsc3, lfoValue);
 
         return sample;
     }
@@ -272,13 +288,14 @@ private:
         return sample;
     }
 
-    void AdvanceOscillatorPhase(OscillatorState& osc) {
+    void AdvanceOscillatorPhase(OscillatorState& osc, float lfoValue) {
         // Calculate frequency with octave and detune
         // Octave: multiply frequency by 2^octave
         // Detune: multiply frequency by 2^(cents/1200)
         double octaveMultiplier = pow(2.0, osc.octave);
         double detuneMultiplier = pow(2.0, osc.detune / 1200.0);
-        double frequency = mBaseFrequency * octaveMultiplier * detuneMultiplier;
+        double lfoMultiplier = pow(2.0, (lfoValue * mLFOPitchAmount) / 1200.0);
+        double frequency = mBaseFrequency * octaveMultiplier * detuneMultiplier * lfoMultiplier;
 
         // Advance phase
         osc.phase += (frequency / mSampleRate) * 2.0 * M_PI;
@@ -308,6 +325,12 @@ private:
     float mEnvDecay;
     float mEnvSustain;
     float mEnvRelease;
+
+    // LFO parameters
+    int mLFOWaveform;
+    float mLFORate;
+    float mLFOPitchAmount;  // in cents
+    float mLFOFilterAmount; // in Hz
 };
 
 #endif

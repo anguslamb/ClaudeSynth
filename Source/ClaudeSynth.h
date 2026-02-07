@@ -31,7 +31,13 @@ enum {
     kParam_EnvAttack = 15,
     kParam_EnvDecay = 16,
     kParam_EnvSustain = 17,
-    kParam_EnvRelease = 18
+    kParam_EnvRelease = 18,
+
+    // LFO
+    kParam_LFO_Waveform = 19,
+    kParam_LFO_Rate = 20,
+    kParam_LFO_PitchAmount = 21,
+    kParam_LFO_FilterAmount = 22
 };
 
 struct OscillatorSettings {
@@ -58,6 +64,13 @@ struct ClaudeSynthData {
     float envDecay;
     float envSustain;
     float envRelease;
+
+    // LFO
+    int lfoWaveform;
+    float lfoRate;
+    float lfoPitchAmount;
+    float lfoFilterAmount;
+    double lfoPhase;  // Global LFO phase shared by all voices
 };
 
 // Helper functions

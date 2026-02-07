@@ -112,6 +112,13 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
     data->envSustain = 0.7f;   // 70% sustain level
     data->envRelease = 0.3f;   // 300ms release
 
+    // LFO defaults
+    data->lfoWaveform = 0;     // Sine
+    data->lfoRate = 5.0f;      // 5 Hz
+    data->lfoPitchAmount = 0.0f;   // No pitch mod by default
+    data->lfoFilterAmount = 0.0f;  // No filter mod by default
+    data->lfoPhase = 0.0;
+
     ClaudeLog("Factory: initialized parameters");
 
     return &data->pluginInterface;
@@ -204,7 +211,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 19;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 23;
             if (outWritable) *outWritable = 0;
             return noErr;
 
@@ -335,7 +342,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID) * 19)
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 23)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
@@ -358,7 +365,11 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                 paramList[16] = kParam_EnvDecay;
                 paramList[17] = kParam_EnvSustain;
                 paramList[18] = kParam_EnvRelease;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 19;
+                paramList[19] = kParam_LFO_Waveform;
+                paramList[20] = kParam_LFO_Rate;
+                paramList[21] = kParam_LFO_PitchAmount;
+                paramList[22] = kParam_LFO_FilterAmount;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 23;
             }
             return noErr;
 
@@ -525,6 +536,38 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->maxValue = 5.0f;
                         info->defaultValue = 0.3f;
                         info->cfNameString = CFSTR("Env Release");
+                        break;
+
+                    case kParam_LFO_Waveform:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 3.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("LFO Waveform");
+                        break;
+
+                    case kParam_LFO_Rate:
+                        info->unit = kAudioUnitParameterUnit_Hertz;
+                        info->minValue = 0.1f;
+                        info->maxValue = 20.0f;
+                        info->defaultValue = 5.0f;
+                        info->cfNameString = CFSTR("LFO Rate");
+                        break;
+
+                    case kParam_LFO_PitchAmount:
+                        info->unit = kAudioUnitParameterUnit_Cents;
+                        info->minValue = -100.0f;
+                        info->maxValue = 100.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("LFO Pitch Amount");
+                        break;
+
+                    case kParam_LFO_FilterAmount:
+                        info->unit = kAudioUnitParameterUnit_Hertz;
+                        info->minValue = 0.0f;
+                        info->maxValue = 10000.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("LFO Filter Amount");
                         break;
 
                     default:
@@ -743,11 +786,38 @@ static OSStatus ClaudeSynth_Render(void *self,
 
     // Render all active voices
     for (UInt32 frame = 0; frame < inNumberFrames; frame++) {
+        // Calculate global LFO value for this frame
+        double lfoPhaseIncrement = (data->lfoRate / data->sampleRate) * 2.0 * M_PI;
+        data->lfoPhase += lfoPhaseIncrement;
+        if (data->lfoPhase >= 2.0 * M_PI) {
+            data->lfoPhase -= 2.0 * M_PI;
+        }
+
+        // Generate LFO waveform output (-1 to 1)
+        float lfoValue = 0.0f;
+        float normalizedPhase = data->lfoPhase / (2.0 * M_PI);
+        switch (data->lfoWaveform) {
+            case 0: // Sine
+                lfoValue = sinf(data->lfoPhase);
+                break;
+            case 1: // Square
+                lfoValue = (normalizedPhase < 0.5f) ? 1.0f : -1.0f;
+                break;
+            case 2: // Sawtooth
+                lfoValue = 2.0f * normalizedPhase - 1.0f;
+                break;
+            case 3: // Triangle
+                lfoValue = (normalizedPhase < 0.5f) ?
+                           (4.0f * normalizedPhase - 1.0f) :
+                           (-4.0f * normalizedPhase + 3.0f);
+                break;
+        }
+
         float sample = 0.0f;
 
         for (int voice = 0; voice < kNumVoices; voice++) {
             if (data->voices[voice].IsActive()) {
-                sample += data->voices[voice].RenderSample();
+                sample += data->voices[voice].RenderSample(lfoValue);
             }
         }
 
@@ -855,6 +925,8 @@ static void UpdateAllVoices(ClaudeSynthData *data) {
         data->voices[i].SetFilterResonance(data->filterResonance);
         data->voices[i].SetEnvelope(data->envAttack, data->envDecay,
                                     data->envSustain, data->envRelease);
+        data->voices[i].SetLFO(data->lfoWaveform, data->lfoRate,
+                               data->lfoPitchAmount, data->lfoFilterAmount);
     }
 }
 
@@ -961,6 +1033,26 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
             UpdateAllVoices(data);
             return noErr;
 
+        case kParam_LFO_Waveform:
+            data->lfoWaveform = (int)inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_LFO_Rate:
+            data->lfoRate = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_LFO_PitchAmount:
+            data->lfoPitchAmount = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_LFO_FilterAmount:
+            data->lfoFilterAmount = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
         default:
             return kAudioUnitErr_InvalidParameter;
     }
@@ -1049,6 +1141,22 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
 
         case kParam_EnvRelease:
             *outValue = data->envRelease;
+            return noErr;
+
+        case kParam_LFO_Waveform:
+            *outValue = (float)data->lfoWaveform;
+            return noErr;
+
+        case kParam_LFO_Rate:
+            *outValue = data->lfoRate;
+            return noErr;
+
+        case kParam_LFO_PitchAmount:
+            *outValue = data->lfoPitchAmount;
+            return noErr;
+
+        case kParam_LFO_FilterAmount:
+            *outValue = data->lfoFilterAmount;
             return noErr;
 
         default:
