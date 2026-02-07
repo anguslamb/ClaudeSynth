@@ -1,6 +1,70 @@
 #import "ClaudeSynthView.h"
 #import "ClaudeSynth.h"
 
+// Helper view class for drawing waveform icons
+@interface WaveformIconView : NSView
+@property (nonatomic) int waveformType;
+@end
+
+@implementation WaveformIconView
+
+- (void)drawRect:(NSRect)dirtyRect {
+    [super drawRect:dirtyRect];
+
+    NSRect bounds = [self bounds];
+    CGFloat width = bounds.size.width;
+    CGFloat height = bounds.size.height;
+
+    NSBezierPath *path = [NSBezierPath bezierPath];
+    [path setLineWidth:1.5];
+    [path setLineCapStyle:NSLineCapStyleRound];
+    [path setLineJoinStyle:NSLineJoinStyleRound];
+
+    switch (self.waveformType) {
+        case 0: // Sine
+            for (int i = 0; i <= 20; i++) {
+                CGFloat t = i / 20.0;
+                CGFloat x = t * width;
+                CGFloat y = height / 2.0 + (height / 2.5) * sin(t * M_PI * 2);
+                if (i == 0) {
+                    [path moveToPoint:NSMakePoint(x, y)];
+                } else {
+                    [path lineToPoint:NSMakePoint(x, y)];
+                }
+            }
+            break;
+
+        case 1: // Square
+            [path moveToPoint:NSMakePoint(0, height * 0.8)];
+            [path lineToPoint:NSMakePoint(width * 0.25, height * 0.8)];
+            [path lineToPoint:NSMakePoint(width * 0.25, height * 0.2)];
+            [path lineToPoint:NSMakePoint(width * 0.75, height * 0.2)];
+            [path lineToPoint:NSMakePoint(width * 0.75, height * 0.8)];
+            [path lineToPoint:NSMakePoint(width, height * 0.8)];
+            break;
+
+        case 2: // Sawtooth
+            [path moveToPoint:NSMakePoint(0, height * 0.2)];
+            [path lineToPoint:NSMakePoint(width * 0.5, height * 0.8)];
+            [path lineToPoint:NSMakePoint(width * 0.5, height * 0.2)];
+            [path lineToPoint:NSMakePoint(width, height * 0.8)];
+            break;
+
+        case 3: // Triangle
+            [path moveToPoint:NSMakePoint(0, height * 0.5)];
+            [path lineToPoint:NSMakePoint(width * 0.25, height * 0.2)];
+            [path lineToPoint:NSMakePoint(width * 0.5, height * 0.5)];
+            [path lineToPoint:NSMakePoint(width * 0.75, height * 0.8)];
+            [path lineToPoint:NSMakePoint(width, height * 0.5)];
+            break;
+    }
+
+    [[NSColor colorWithWhite:0.6 alpha:1.0] setStroke];
+    [path stroke];
+}
+
+@end
+
 @implementation ClaudeSynthView
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au {
@@ -351,14 +415,29 @@
     return self;
 }
 
+- (void)addWaveformIconsAtX:(int)x baseY:(int)baseY {
+    CGFloat iconWidth = 25.0;
+    CGFloat iconHeight = 12.0;
+    CGFloat spacing = 20.0; // Vertical spacing between icons
+
+    // Add 4 waveform icons (Sine, Square, Sawtooth, Triangle)
+    for (int i = 0; i < 4; i++) {
+        CGFloat yPos = baseY + (i * spacing) - (iconHeight / 2.0);
+
+        WaveformIconView *iconView = [[WaveformIconView alloc] initWithFrame:NSMakeRect(x, yPos, iconWidth, iconHeight)];
+        iconView.waveformType = i;
+        [self addSubview:iconView];
+    }
+}
+
 - (void)createOscillatorSection:(int)oscNum atX:(int)x {
     NSTextField *label, *waveLabel, *octaveLabel, *octaveDisplay, *detuneLabel, *detuneDisplay, *volumeLabel, *volumeDisplay;
-    DiscreteKnob *waveKnob;
+    NSSlider *waveKnob;
     RotaryKnob *octaveKnob, *detuneKnob, *volumeKnob;
 
     // Section label
     label = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 255, 120, 20)];
-    [label setStringValue:[NSString stringWithFormat:@"Oscillator %d", oscNum]];
+    [label setStringValue:[NSString stringWithFormat:@"Osc %d", oscNum]];
     [label setAlignment:NSTextAlignmentCenter];
     [label setBezeled:NO];
     [label setDrawsBackground:NO];
@@ -368,8 +447,8 @@
     [label setTextColor:[NSColor whiteColor]];
     [self addSubview:label];
 
-    // Waveform
-    waveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 220, 120, 16)];
+    // Waveform section (left side)
+    waveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 10, 220, 70, 16)];
     [waveLabel setStringValue:@"Waveform"];
     [waveLabel setAlignment:NSTextAlignmentCenter];
     [waveLabel setBezeled:NO];
@@ -380,7 +459,15 @@
     [waveLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:waveLabel];
 
-    waveKnob = [[DiscreteKnob alloc] initWithFrame:NSMakeRect(x + 50, 185, 80, 30)];
+    // Add waveform icons
+    [self addWaveformIconsAtX:x + 15 baseY:150];
+
+    // Vertical slider (right of icons)
+    waveKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 45, 150, 20, 60)];
+    [waveKnob setMinValue:0];
+    [waveKnob setMaxValue:3];
+    [waveKnob setNumberOfTickMarks:4];
+    [waveKnob setAllowsTickMarkValuesOnly:YES];
 
     AudioUnitParameterValue initialWaveform = 0.0f;
     AudioUnitParameterID waveformParamID = (oscNum == 1) ? kParam_Osc1_Waveform :
@@ -394,10 +481,11 @@
     if (oscNum == 1) [waveKnob setAction:@selector(osc1WaveformChanged:)];
     else if (oscNum == 2) [waveKnob setAction:@selector(osc2WaveformChanged:)];
     else [waveKnob setAction:@selector(osc3WaveformChanged:)];
+    [waveKnob setContinuous:YES];
     [self addSubview:waveKnob];
 
-    // Octave
-    octaveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 160, 120, 16)];
+    // Octave section (right side, next to waveform)
+    octaveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 220, 80, 16)];
     [octaveLabel setStringValue:@"Octave"];
     [octaveLabel setAlignment:NSTextAlignmentCenter];
     [octaveLabel setBezeled:NO];
@@ -408,7 +496,7 @@
     [octaveLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:octaveLabel];
 
-    octaveKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 50, 100, 80, 60)];
+    octaveKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 155, 50, 50)];
     [octaveKnob setMinValue:-2.0];
     [octaveKnob setMaxValue:2.0];
     [octaveKnob setBipolar:YES];
@@ -428,7 +516,7 @@
     [octaveKnob setContinuous:YES];
     [self addSubview:octaveKnob];
 
-    octaveDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 80, 120, 16)];
+    octaveDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 135, 80, 16)];
     int octaveInt = (int)round(initialOctave);
     [octaveDisplay setStringValue:[NSString stringWithFormat:@"%+d", octaveInt]];
     [octaveDisplay setAlignment:NSTextAlignmentCenter];
@@ -440,10 +528,10 @@
     [octaveDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
     [self addSubview:octaveDisplay];
 
-    // Detune
-    detuneLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 60, 60, 16)];
+    // Detune (bottom left)
+    detuneLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 100, 60, 16)];
     [detuneLabel setStringValue:@"Detune"];
-    [detuneLabel setAlignment:NSTextAlignmentLeft];
+    [detuneLabel setAlignment:NSTextAlignmentCenter];
     [detuneLabel setBezeled:NO];
     [detuneLabel setDrawsBackground:NO];
     [detuneLabel setEditable:NO];
@@ -452,7 +540,7 @@
     [detuneLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:detuneLabel];
 
-    detuneKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 30, 25, 50, 40)];
+    detuneKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 45, 50, 50)];
     [detuneKnob setMinValue:-100.0];
     [detuneKnob setMaxValue:100.0];
     [detuneKnob setBipolar:YES];
@@ -472,7 +560,7 @@
     [detuneKnob setContinuous:YES];
     [self addSubview:detuneKnob];
 
-    detuneDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 5, 50, 16)];
+    detuneDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 25, 60, 16)];
     [detuneDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", initialDetune]];
     [detuneDisplay setAlignment:NSTextAlignmentCenter];
     [detuneDisplay setBezeled:NO];
@@ -483,10 +571,10 @@
     [detuneDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
     [self addSubview:detuneDisplay];
 
-    // Volume
-    volumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 100, 60, 60, 16)];
+    // Volume (bottom right)
+    volumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 100, 60, 16)];
     [volumeLabel setStringValue:@"Volume"];
-    [volumeLabel setAlignment:NSTextAlignmentLeft];
+    [volumeLabel setAlignment:NSTextAlignmentCenter];
     [volumeLabel setBezeled:NO];
     [volumeLabel setDrawsBackground:NO];
     [volumeLabel setEditable:NO];
@@ -495,7 +583,7 @@
     [volumeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:volumeLabel];
 
-    volumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 25, 50, 40)];
+    volumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 45, 50, 50)];
     [volumeKnob setMinValue:0.0];
     [volumeKnob setMaxValue:1.0];
 
@@ -514,7 +602,7 @@
     [volumeKnob setContinuous:YES];
     [self addSubview:volumeKnob];
 
-    volumeDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 100, 5, 50, 16)];
+    volumeDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 25, 60, 16)];
     [volumeDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialVolume * 100.0]];
     [volumeDisplay setAlignment:NSTextAlignmentCenter];
     [volumeDisplay setBezeled:NO];

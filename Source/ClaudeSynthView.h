@@ -3,7 +3,6 @@
 #import <AudioUnit/AUCocoaUIView.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import "RotaryKnob.h"
-#import "DiscreteKnob.h"
 
 @interface ClaudeSynthView : NSView
 {
@@ -16,7 +15,7 @@
 
     // Oscillator 1
     NSTextField *osc1Label;
-    DiscreteKnob *osc1WaveformKnob;
+    NSSlider *osc1WaveformKnob;
     NSTextField *osc1WaveformLabel;
     RotaryKnob *osc1OctaveKnob;
     NSTextField *osc1OctaveLabel;
@@ -30,7 +29,7 @@
 
     // Oscillator 2
     NSTextField *osc2Label;
-    DiscreteKnob *osc2WaveformKnob;
+    NSSlider *osc2WaveformKnob;
     NSTextField *osc2WaveformLabel;
     RotaryKnob *osc2OctaveKnob;
     NSTextField *osc2OctaveLabel;
@@ -44,7 +43,7 @@
 
     // Oscillator 3
     NSTextField *osc3Label;
-    DiscreteKnob *osc3WaveformKnob;
+    NSSlider *osc3WaveformKnob;
     NSTextField *osc3WaveformLabel;
     RotaryKnob *osc3OctaveKnob;
     NSTextField *osc3OctaveLabel;
