@@ -11,6 +11,7 @@
     if (self) {
         _minValue = 0.0;
         _maxValue = 1.0;
+        _bipolar = NO;
         [super setDoubleValue:1.0];
     }
     return self;
@@ -49,9 +50,35 @@
     [outerCircle setLineWidth:1.0];
     [outerCircle stroke];
 
-    // Calculate indicator angle (-135° to +135°, 270° total range)
+    // Calculate indicator angle
     double normalizedValue = (self.doubleValue - self.minValue) / (self.maxValue - self.minValue);
-    double angle = -135.0 + (normalizedValue * 270.0); // degrees
+    double angle;
+
+    if (self.bipolar) {
+        // Bipolar mode: center at 12 o'clock (90°)
+        // Clockwise increases value: min at 225° (left), center at 90°, max at -45°/315° (right)
+        angle = 90.0 - ((normalizedValue - 0.5) * 270.0);
+
+        // Draw reference mark at 12 o'clock (center position)
+        double centerAngleRad = 90.0 * M_PI / 180.0;
+        CGFloat markLength = radius * 0.8;
+        CGFloat markX = centerX + cos(centerAngleRad) * markLength;
+        CGFloat markY = centerY + sin(centerAngleRad) * markLength;
+
+        NSBezierPath *centerMark = [NSBezierPath bezierPath];
+        [centerMark moveToPoint:NSMakePoint(centerX + cos(centerAngleRad) * (radius * 0.75),
+                                            centerY + sin(centerAngleRad) * (radius * 0.75))];
+        [centerMark lineToPoint:NSMakePoint(markX, markY)];
+        [[NSColor colorWithWhite:0.6 alpha:0.5] setStroke];
+        [centerMark setLineWidth:2.0];
+        [centerMark stroke];
+    } else {
+        // Normal mode: 7 o'clock to 5 o'clock, sweeping across the top
+        // Start at 210° (7:00), sweep through 90° (12:00) to 330° (5:00)
+        // Total range: 240° going counter-clockwise (which appears clockwise on a clock)
+        angle = 210.0 - (normalizedValue * 240.0);
+    }
+
     double angleRad = angle * M_PI / 180.0;
 
     // Draw indicator line from center

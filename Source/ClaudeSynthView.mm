@@ -250,6 +250,7 @@
     octaveKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 50, 100, 80, 60)];
     [octaveKnob setMinValue:-2.0];
     [octaveKnob setMaxValue:2.0];
+    [octaveKnob setBipolar:YES];
 
     AudioUnitParameterValue initialOctave = 0.0f;
     AudioUnitParameterID octaveParamID = (oscNum == 1) ? kParam_Osc1_Octave :
@@ -293,6 +294,7 @@
     detuneKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 30, 25, 50, 40)];
     [detuneKnob setMinValue:-100.0];
     [detuneKnob setMaxValue:100.0];
+    [detuneKnob setBipolar:YES];
 
     AudioUnitParameterValue initialDetune = 0.0f;
     AudioUnitParameterID detuneParamID = (oscNum == 1) ? kParam_Osc1_Detune :
