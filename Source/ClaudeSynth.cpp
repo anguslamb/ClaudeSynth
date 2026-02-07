@@ -79,7 +79,8 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
 
     // Initialize parameters
     data->masterVolume = 1.0f;
-    ClaudeLog("Factory: initialized masterVolume to %f", data->masterVolume);
+    data->waveform = 0; // Sine wave by default
+    ClaudeLog("Factory: initialized masterVolume to %f, waveform to %d", data->masterVolume, data->waveform);
 
     return &data->pluginInterface;
 }
@@ -166,7 +167,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 1;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 2;
             if (outWritable) *outWritable = 0;
             return noErr;
 
@@ -281,12 +282,13 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID))
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 2)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
                 paramList[0] = kParam_MasterVolume;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 1;
+                paramList[1] = kParam_Waveform;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 2;
             }
             return noErr;
 
@@ -295,20 +297,33 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                 return kAudioUnitErr_InvalidParameter;
             if (inScope != kAudioUnitScope_Global)
                 return kAudioUnitErr_InvalidScope;
-            if (inElement == kParam_MasterVolume) {
+            {
                 AudioUnitParameterInfo *info = (AudioUnitParameterInfo *)outData;
                 memset(info, 0, sizeof(AudioUnitParameterInfo));
-                info->flags = kAudioUnitParameterFlag_IsWritable |
-                              kAudioUnitParameterFlag_IsReadable |
-                              kAudioUnitParameterFlag_HasCFNameString;
-                info->unit = kAudioUnitParameterUnit_LinearGain;
-                info->minValue = 0.0f;
-                info->maxValue = 1.0f;
-                info->defaultValue = 1.0f;
-                CFStringRef name = CFStringCreateWithCString(NULL, "Master Volume", kCFStringEncodingUTF8);
-                info->cfNameString = name;
-                *ioDataSize = sizeof(AudioUnitParameterInfo);
-                return noErr;
+
+                if (inElement == kParam_MasterVolume) {
+                    info->flags = kAudioUnitParameterFlag_IsWritable |
+                                  kAudioUnitParameterFlag_IsReadable |
+                                  kAudioUnitParameterFlag_HasCFNameString;
+                    info->unit = kAudioUnitParameterUnit_LinearGain;
+                    info->minValue = 0.0f;
+                    info->maxValue = 1.0f;
+                    info->defaultValue = 1.0f;
+                    info->cfNameString = CFStringCreateWithCString(NULL, "Master Volume", kCFStringEncodingUTF8);
+                    *ioDataSize = sizeof(AudioUnitParameterInfo);
+                    return noErr;
+                } else if (inElement == kParam_Waveform) {
+                    info->flags = kAudioUnitParameterFlag_IsWritable |
+                                  kAudioUnitParameterFlag_IsReadable |
+                                  kAudioUnitParameterFlag_HasCFNameString;
+                    info->unit = kAudioUnitParameterUnit_Indexed;
+                    info->minValue = 0.0f;
+                    info->maxValue = 3.0f;
+                    info->defaultValue = 0.0f;
+                    info->cfNameString = CFStringCreateWithCString(NULL, "Waveform", kCFStringEncodingUTF8);
+                    *ioDataSize = sizeof(AudioUnitParameterInfo);
+                    return noErr;
+                }
             }
             return kAudioUnitErr_InvalidParameter;
 
@@ -593,6 +608,17 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
         return noErr;
     }
 
+    if (inID == kParam_Waveform) {
+        data->waveform = (int)inValue;
+        ClaudeLog("SetParameter: waveform set to %d", data->waveform);
+
+        // Update all voices with new waveform
+        for (int i = 0; i < kNumVoices; i++) {
+            data->voices[i].SetWaveform((Waveform)data->waveform);
+        }
+        return noErr;
+    }
+
     return kAudioUnitErr_InvalidParameter;
 }
 
@@ -607,6 +633,12 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
     if (inID == kParam_MasterVolume) {
         *outValue = data->masterVolume;
         ClaudeLog("GetParameter: returning masterVolume=%f", data->masterVolume);
+        return noErr;
+    }
+
+    if (inID == kParam_Waveform) {
+        *outValue = (float)data->waveform;
+        ClaudeLog("GetParameter: returning waveform=%d", data->waveform);
         return noErr;
     }
 
