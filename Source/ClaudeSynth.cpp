@@ -1054,8 +1054,20 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
         case 0x90: // Note On
             ClaudeLog("  -> Case 0x90 matched, velocity=%d", velocity);
             if (velocity > 0) {
-                SynthVoice *voice = FindFreeVoice(data);
-                ClaudeLog("  -> FindFreeVoice returned %p", voice);
+                // Check if this note is already playing
+                SynthVoice *existingVoice = FindVoiceForNote(data, noteNumber);
+                SynthVoice *voice = nullptr;
+
+                if (existingVoice) {
+                    // Retrigger the existing voice (restarts envelope from current level)
+                    voice = existingVoice;
+                    ClaudeLog("  -> Retriggering existing voice for note %d", noteNumber);
+                } else {
+                    // Allocate a new voice
+                    voice = FindFreeVoice(data);
+                    ClaudeLog("  -> FindFreeVoice returned %p", voice);
+                }
+
                 if (voice) {
                     voice->NoteOn(noteNumber, velocity, data->sampleRate);
                     voice->SetOscillator1(data->osc1.waveform, data->osc1.octave,
@@ -1068,7 +1080,7 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                     voice->SetFilterResonance(data->filterResonance);
                     voice->SetEnvelope(data->envAttack, data->envDecay,
                                       data->envSustain, data->envRelease);
-                    ClaudeLog("  -> Voice allocated for note %d", noteNumber);
+                    ClaudeLog("  -> Voice configured for note %d", noteNumber);
                 } else {
                     ClaudeLog("  -> ERROR: FindFreeVoice returned NULL!");
                 }

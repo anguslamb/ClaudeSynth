@@ -56,20 +56,26 @@ public:
     }
 
     void NoteOn(int note, int velocity, double sampleRate) {
+        bool wasIdle = (mEnvStage == kEnvStage_Idle);
+
         mNote = note;
         mVelocity = velocity;
         mSampleRate = sampleRate;
-        mOsc1.phase = 0.0;
-        mOsc2.phase = 0.0;
-        mOsc3.phase = 0.0;
         mActive = true;
 
-        // Reset filter state
-        mLowpass = 0.0f;
-        mBandpass = 0.0f;
+        // Only reset phases and filter state if voice was completely idle
+        // This prevents clicks when retriggering active/releasing voices
+        if (wasIdle) {
+            mOsc1.phase = 0.0;
+            mOsc2.phase = 0.0;
+            mOsc3.phase = 0.0;
+            mLowpass = 0.0f;
+            mBandpass = 0.0f;
+            mEnvelopeLevel = 0.0f;
+        }
+        // Otherwise keep oscillator phases, filter state, and envelope level
 
         // Start envelope at attack stage
-        mEnvelopeLevel = 0.0f;
         mEnvStage = kEnvStage_Attack;
 
         // Convert MIDI note to frequency: 440 * 2^((note-69)/12)
@@ -80,6 +86,14 @@ public:
         // Enter release stage and store current level for linear release
         mEnvStage = kEnvStage_Release;
         mReleaseStartLevel = mEnvelopeLevel;
+    }
+
+    void Kill() {
+        // Immediately stop the voice (for voice stealing/retriggering)
+        mActive = false;
+        mNote = -1;
+        mEnvStage = kEnvStage_Idle;
+        mEnvelopeLevel = 0.0f;
     }
 
     bool IsActive() const { return mActive; }
