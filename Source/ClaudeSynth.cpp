@@ -1903,6 +1903,13 @@ static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInst
             voice->SetEnvelope(data->envAttack, data->envDecay,
                               data->envSustain, data->envRelease);
 
+            // Increment active note count and trigger global filter envelope if idle
+            data->activeNoteCount++;
+            if (data->filterEnvStage == kEnvStage_Idle || data->filterEnvStage == kEnvStage_Release) {
+                data->filterEnvLevel = 0.0f;  // Reset to 0 for clean attack
+                data->filterEnvStage = kEnvStage_Attack;
+            }
+
             // Return note instance ID (use voice index + 1 to avoid 0)
             if (outNoteInstanceID) {
                 for (int i = 0; i < kNumVoices; i++) {
@@ -1928,6 +1935,14 @@ static OSStatus ClaudeSynth_StopNote(void *self, MusicDeviceGroupID inGroupID,
     if (inNoteInstanceID > 0 && inNoteInstanceID <= kNumVoices) {
         int voiceIndex = inNoteInstanceID - 1;
         data->voices[voiceIndex].NoteOff();
+
+        // Decrement active note count and trigger global filter envelope release if last note
+        data->activeNoteCount--;
+        if (data->activeNoteCount <= 0) {
+            data->activeNoteCount = 0;
+            data->filterEnvStage = kEnvStage_Release;
+            data->filterEnvReleaseStartLevel = data->filterEnvLevel;
+        }
     }
 
     return noErr;
