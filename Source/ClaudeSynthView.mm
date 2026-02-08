@@ -67,14 +67,15 @@
 
 @interface ClaudeSynthView()
 - (void)createOscillatorSection:(int)oscNum atX:(int)x;
-- (void)createLFOSectionAtX:(int)x;
+- (void)createLFOSectionAtX:(int)x lfoNum:(int)lfoNum;
+- (void)createModulationMatrixSection;
 - (void)addWaveformIconsAtX:(int)x baseY:(int)baseY;
 @end
 
 @implementation ClaudeSynthView
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au {
-    self = [super initWithFrame:NSMakeRect(0, 0, 1260, 320)];
+    self = [super initWithFrame:NSMakeRect(0, 0, 1260, 520)];
     if (self) {
         mAU = au;
 
@@ -83,7 +84,7 @@
         self.layer.backgroundColor = [[NSColor colorWithWhite:0.15 alpha:1.0] CGColor];
 
         // Title label at top
-        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 280, 1260, 30)];
+        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 480, 1260, 30)];
         [titleLabel setStringValue:@"ClaudeSynth"];
         [titleLabel setAlignment:NSTextAlignmentCenter];
         [titleLabel setBezeled:NO];
@@ -94,13 +95,14 @@
         [titleLabel setTextColor:[NSColor whiteColor]];
         [self addSubview:titleLabel];
 
-        // Layout: 7 sections horizontally - Osc1, Osc2, Osc3, LFO, Filter, Envelope, Master
+        // Layout: 7 sections horizontally - Osc1, Osc2, Osc3, LFO1, LFO2, Filter, Envelope, Master
         // Each section is 180 pixels wide
         int sectionWidth = 180;
         int osc1X = 0;
         int osc2X = 180;
         int osc3X = 360;
-        int lfoX = 540;
+        int lfo1X = 540;
+        int lfo2X = 630;
         int filterX = 720;
         int envelopeX = 900;
         int masterX = 1080;
@@ -114,11 +116,14 @@
         // ===== OSCILLATOR 3 =====
         [self createOscillatorSection:3 atX:osc3X];
 
-        // ===== LFO SECTION =====
-        [self createLFOSectionAtX:lfoX];
+        // ===== LFO 1 SECTION =====
+        [self createLFOSectionAtX:lfo1X lfoNum:1];
+
+        // ===== LFO 2 SECTION =====
+        [self createLFOSectionAtX:lfo2X lfoNum:2];
 
         // ===== FILTER SECTION =====
-        filterLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 255, 120, 20)];
+        filterLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 455, 120, 20)];
         [filterLabel setStringValue:@"Filter"];
         [filterLabel setAlignment:NSTextAlignmentCenter];
         [filterLabel setBezeled:NO];
@@ -130,7 +135,7 @@
         [self addSubview:filterLabel];
 
         // Filter Cutoff
-        cutoffLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 220, 120, 16)];
+        cutoffLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 420, 120, 16)];
         [cutoffLabel setStringValue:@"Cutoff"];
         [cutoffLabel setAlignment:NSTextAlignmentCenter];
         [cutoffLabel setBezeled:NO];
@@ -141,7 +146,7 @@
         [cutoffLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:cutoffLabel];
 
-        cutoffKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 150, 80, 80)];
+        cutoffKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 350, 80, 80)];
         [cutoffKnob setMinValue:0.0];
         [cutoffKnob setMaxValue:1.0];
 
@@ -157,7 +162,7 @@
         [cutoffKnob setContinuous:YES];
         [self addSubview:cutoffKnob];
 
-        cutoffValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 130, 120, 16)];
+        cutoffValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 330, 120, 16)];
         [cutoffValueDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", initialCutoff]];
         [cutoffValueDisplay setAlignment:NSTextAlignmentCenter];
         [cutoffValueDisplay setBezeled:NO];
@@ -169,7 +174,7 @@
         [self addSubview:cutoffValueDisplay];
 
         // Filter Resonance
-        resonanceLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 105, 120, 16)];
+        resonanceLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 305, 120, 16)];
         [resonanceLabel setStringValue:@"Resonance"];
         [resonanceLabel setAlignment:NSTextAlignmentCenter];
         [resonanceLabel setBezeled:NO];
@@ -180,7 +185,7 @@
         [resonanceLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:resonanceLabel];
 
-        resonanceKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 35, 80, 80)];
+        resonanceKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 235, 80, 80)];
         [resonanceKnob setMinValue:0.5];
         [resonanceKnob setMaxValue:10.0];
 
@@ -195,7 +200,7 @@
         [resonanceKnob setContinuous:YES];
         [self addSubview:resonanceKnob];
 
-        resonanceValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 15, 120, 16)];
+        resonanceValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 215, 120, 16)];
         [resonanceValueDisplay setStringValue:[NSString stringWithFormat:@"Q: %.2f", initialResonance]];
         [resonanceValueDisplay setAlignment:NSTextAlignmentCenter];
         [resonanceValueDisplay setBezeled:NO];
@@ -207,7 +212,7 @@
         [self addSubview:resonanceValueDisplay];
 
         // ===== ENVELOPE SECTION =====
-        envelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 30, 255, 120, 20)];
+        envelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 30, 455, 120, 20)];
         [envelopeLabel setStringValue:@"Envelope"];
         [envelopeLabel setAlignment:NSTextAlignmentCenter];
         [envelopeLabel setBezeled:NO];
@@ -219,7 +224,7 @@
         [self addSubview:envelopeLabel];
 
         // Attack slider
-        attackLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 15, 220, 30, 16)];
+        attackLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 15, 420, 30, 16)];
         [attackLabel setStringValue:@"A"];
         [attackLabel setAlignment:NSTextAlignmentCenter];
         [attackLabel setBezeled:NO];
@@ -230,7 +235,7 @@
         [attackLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:attackLabel];
 
-        attackSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 15, 60, 30, 160)];
+        attackSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 15, 260, 30, 160)];
         [attackSlider setMinValue:0.001];
         [attackSlider setMaxValue:5.0];
 
@@ -244,7 +249,7 @@
         [attackSlider setContinuous:YES];
         [self addSubview:attackSlider];
 
-        attackDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 15, 40, 30, 16)];
+        attackDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 15, 240, 30, 16)];
         [attackDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(initialAttack * 1000)]];
         [attackDisplay setAlignment:NSTextAlignmentCenter];
         [attackDisplay setBezeled:NO];
@@ -256,7 +261,7 @@
         [self addSubview:attackDisplay];
 
         // Decay slider
-        decayLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 55, 220, 30, 16)];
+        decayLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 55, 420, 30, 16)];
         [decayLabel setStringValue:@"D"];
         [decayLabel setAlignment:NSTextAlignmentCenter];
         [decayLabel setBezeled:NO];
@@ -267,7 +272,7 @@
         [decayLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:decayLabel];
 
-        decaySlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 55, 60, 30, 160)];
+        decaySlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 55, 260, 30, 160)];
         [decaySlider setMinValue:0.001];
         [decaySlider setMaxValue:5.0];
 
@@ -281,7 +286,7 @@
         [decaySlider setContinuous:YES];
         [self addSubview:decaySlider];
 
-        decayDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 55, 40, 30, 16)];
+        decayDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 55, 240, 30, 16)];
         [decayDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(initialDecay * 1000)]];
         [decayDisplay setAlignment:NSTextAlignmentCenter];
         [decayDisplay setBezeled:NO];
@@ -293,7 +298,7 @@
         [self addSubview:decayDisplay];
 
         // Sustain slider
-        sustainLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 95, 220, 30, 16)];
+        sustainLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 95, 420, 30, 16)];
         [sustainLabel setStringValue:@"S"];
         [sustainLabel setAlignment:NSTextAlignmentCenter];
         [sustainLabel setBezeled:NO];
@@ -304,7 +309,7 @@
         [sustainLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:sustainLabel];
 
-        sustainSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 95, 60, 30, 160)];
+        sustainSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 95, 260, 30, 160)];
         [sustainSlider setMinValue:0.0];
         [sustainSlider setMaxValue:1.0];
 
@@ -318,7 +323,7 @@
         [sustainSlider setContinuous:YES];
         [self addSubview:sustainSlider];
 
-        sustainDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 95, 40, 30, 16)];
+        sustainDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 95, 240, 30, 16)];
         [sustainDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialSustain * 100]];
         [sustainDisplay setAlignment:NSTextAlignmentCenter];
         [sustainDisplay setBezeled:NO];
@@ -330,7 +335,7 @@
         [self addSubview:sustainDisplay];
 
         // Release slider
-        releaseLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 135, 220, 30, 16)];
+        releaseLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 135, 420, 30, 16)];
         [releaseLabel setStringValue:@"R"];
         [releaseLabel setAlignment:NSTextAlignmentCenter];
         [releaseLabel setBezeled:NO];
@@ -341,7 +346,7 @@
         [releaseLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:releaseLabel];
 
-        releaseSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 135, 60, 30, 160)];
+        releaseSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(envelopeX + 135, 260, 30, 160)];
         [releaseSlider setMinValue:0.001];
         [releaseSlider setMaxValue:5.0];
 
@@ -355,7 +360,7 @@
         [releaseSlider setContinuous:YES];
         [self addSubview:releaseSlider];
 
-        releaseDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 135, 40, 30, 16)];
+        releaseDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 135, 240, 30, 16)];
         [releaseDisplay setStringValue:[NSString stringWithFormat:@"%dms", (int)(initialRelease * 1000)]];
         [releaseDisplay setAlignment:NSTextAlignmentCenter];
         [releaseDisplay setBezeled:NO];
@@ -367,7 +372,7 @@
         [self addSubview:releaseDisplay];
 
         // ===== MASTER VOLUME SECTION =====
-        masterVolumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 255, 120, 20)];
+        masterVolumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 455, 120, 20)];
         [masterVolumeLabel setStringValue:@"Master"];
         [masterVolumeLabel setAlignment:NSTextAlignmentCenter];
         [masterVolumeLabel setBezeled:NO];
@@ -378,7 +383,7 @@
         [masterVolumeLabel setTextColor:[NSColor whiteColor]];
         [self addSubview:masterVolumeLabel];
 
-        NSTextField *volumeSubLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 220, 120, 16)];
+        NSTextField *volumeSubLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 420, 120, 16)];
         [volumeSubLabel setStringValue:@"Volume"];
         [volumeSubLabel setAlignment:NSTextAlignmentCenter];
         [volumeSubLabel setBezeled:NO];
@@ -389,7 +394,7 @@
         [volumeSubLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
         [self addSubview:volumeSubLabel];
 
-        masterVolumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(masterX + 50, 150, 80, 80)];
+        masterVolumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(masterX + 50, 350, 80, 80)];
         [masterVolumeKnob setMinValue:0.0];
         [masterVolumeKnob setMaxValue:1.0];
 
@@ -404,7 +409,7 @@
         [masterVolumeKnob setContinuous:YES];
         [self addSubview:masterVolumeKnob];
 
-        masterVolumeDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 130, 120, 20)];
+        masterVolumeDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 330, 120, 20)];
         [masterVolumeDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialMasterVolume * 100.0]];
         [masterVolumeDisplay setAlignment:NSTextAlignmentCenter];
         [masterVolumeDisplay setBezeled:NO];
@@ -414,6 +419,9 @@
         [masterVolumeDisplay setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightMedium]];
         [masterVolumeDisplay setTextColor:[NSColor whiteColor]];
         [self addSubview:masterVolumeDisplay];
+
+        // ===== MODULATION MATRIX SECTION =====
+        [self createModulationMatrixSection];
 
         // Start timer to poll for host automation updates
         updateTimer = [NSTimer scheduledTimerWithTimeInterval:0.1
@@ -446,7 +454,7 @@
     RotaryKnob *octaveKnob, *detuneKnob, *volumeKnob;
 
     // Section label
-    label = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 255, 120, 20)];
+    label = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 455, 120, 20)];
     [label setStringValue:[NSString stringWithFormat:@"Osc %d", oscNum]];
     [label setAlignment:NSTextAlignmentCenter];
     [label setBezeled:NO];
@@ -458,7 +466,7 @@
     [self addSubview:label];
 
     // Waveform section (left side)
-    waveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 10, 220, 70, 16)];
+    waveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 10, 420, 70, 16)];
     [waveLabel setStringValue:@"Waveform"];
     [waveLabel setAlignment:NSTextAlignmentCenter];
     [waveLabel setBezeled:NO];
@@ -470,10 +478,10 @@
     [self addSubview:waveLabel];
 
     // Add waveform icons
-    [self addWaveformIconsAtX:x + 15 baseY:150];
+    [self addWaveformIconsAtX:x + 15 baseY:350];
 
     // Vertical slider (right of icons)
-    waveKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 45, 150, 20, 60)];
+    waveKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 45, 350, 20, 60)];
     [waveKnob setMinValue:0];
     [waveKnob setMaxValue:3];
     [waveKnob setNumberOfTickMarks:4];
@@ -495,7 +503,7 @@
     [self addSubview:waveKnob];
 
     // Octave section (right side, next to waveform)
-    octaveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 220, 80, 16)];
+    octaveLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 420, 80, 16)];
     [octaveLabel setStringValue:@"Octave"];
     [octaveLabel setAlignment:NSTextAlignmentCenter];
     [octaveLabel setBezeled:NO];
@@ -506,7 +514,7 @@
     [octaveLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:octaveLabel];
 
-    octaveKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 155, 50, 50)];
+    octaveKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 355, 50, 50)];
     [octaveKnob setMinValue:-2.0];
     [octaveKnob setMaxValue:2.0];
     [octaveKnob setBipolar:YES];
@@ -526,7 +534,7 @@
     [octaveKnob setContinuous:YES];
     [self addSubview:octaveKnob];
 
-    octaveDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 135, 80, 16)];
+    octaveDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 335, 80, 16)];
     int octaveInt = (int)round(initialOctave);
     [octaveDisplay setStringValue:[NSString stringWithFormat:@"%+d", octaveInt]];
     [octaveDisplay setAlignment:NSTextAlignmentCenter];
@@ -539,7 +547,7 @@
     [self addSubview:octaveDisplay];
 
     // Detune (bottom left)
-    detuneLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 100, 60, 16)];
+    detuneLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 300, 60, 16)];
     [detuneLabel setStringValue:@"Detune"];
     [detuneLabel setAlignment:NSTextAlignmentCenter];
     [detuneLabel setBezeled:NO];
@@ -550,7 +558,7 @@
     [detuneLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:detuneLabel];
 
-    detuneKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 45, 50, 50)];
+    detuneKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 245, 50, 50)];
     [detuneKnob setMinValue:-100.0];
     [detuneKnob setMaxValue:100.0];
     [detuneKnob setBipolar:YES];
@@ -570,7 +578,7 @@
     [detuneKnob setContinuous:YES];
     [self addSubview:detuneKnob];
 
-    detuneDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 25, 60, 16)];
+    detuneDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 225, 60, 16)];
     [detuneDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", initialDetune]];
     [detuneDisplay setAlignment:NSTextAlignmentCenter];
     [detuneDisplay setBezeled:NO];
@@ -582,7 +590,7 @@
     [self addSubview:detuneDisplay];
 
     // Volume (bottom right)
-    volumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 100, 60, 16)];
+    volumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 300, 60, 16)];
     [volumeLabel setStringValue:@"Volume"];
     [volumeLabel setAlignment:NSTextAlignmentCenter];
     [volumeLabel setBezeled:NO];
@@ -593,7 +601,7 @@
     [volumeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:volumeLabel];
 
-    volumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 45, 50, 50)];
+    volumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 245, 50, 50)];
     [volumeKnob setMinValue:0.0];
     [volumeKnob setMaxValue:1.0];
 
@@ -612,7 +620,7 @@
     [volumeKnob setContinuous:YES];
     [self addSubview:volumeKnob];
 
-    volumeDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 25, 60, 16)];
+    volumeDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 225, 60, 16)];
     [volumeDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialVolume * 100.0]];
     [volumeDisplay setAlignment:NSTextAlignmentCenter];
     [volumeDisplay setBezeled:NO];
@@ -666,156 +674,247 @@
     }
 }
 
-- (void)createLFOSectionAtX:(int)x {
+- (void)createLFOSectionAtX:(int)x lfoNum:(int)lfoNum {
     // Section label
-    lfoLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 255, 120, 20)];
-    [lfoLabel setStringValue:@"LFO"];
-    [lfoLabel setAlignment:NSTextAlignmentCenter];
-    [lfoLabel setBezeled:NO];
-    [lfoLabel setDrawsBackground:NO];
-    [lfoLabel setEditable:NO];
-    [lfoLabel setSelectable:NO];
-    [lfoLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-    [lfoLabel setTextColor:[NSColor whiteColor]];
-    [self addSubview:lfoLabel];
+    NSTextField *label = [[NSTextField alloc] initWithFrame:NSMakeRect(x, 455, 90, 20)];
+    [label setStringValue:[NSString stringWithFormat:@"LFO %d", lfoNum]];
+    [label setAlignment:NSTextAlignmentCenter];
+    [label setBezeled:NO];
+    [label setDrawsBackground:NO];
+    [label setEditable:NO];
+    [label setSelectable:NO];
+    [label setFont:[NSFont systemFontOfSize:12 weight:NSFontWeightBold]];
+    [label setTextColor:[NSColor whiteColor]];
+    [self addSubview:label];
 
-    // Waveform selector (left side)
-    lfoWaveformLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 10, 220, 70, 16)];
-    [lfoWaveformLabel setStringValue:@"Waveform"];
-    [lfoWaveformLabel setAlignment:NSTextAlignmentCenter];
-    [lfoWaveformLabel setBezeled:NO];
-    [lfoWaveformLabel setDrawsBackground:NO];
-    [lfoWaveformLabel setEditable:NO];
-    [lfoWaveformLabel setSelectable:NO];
-    [lfoWaveformLabel setFont:[NSFont systemFontOfSize:10]];
-    [lfoWaveformLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
-    [self addSubview:lfoWaveformLabel];
+    // Waveform selector
+    NSTextField *waveformLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 5, 420, 80, 16)];
+    [waveformLabel setStringValue:@"Waveform"];
+    [waveformLabel setAlignment:NSTextAlignmentCenter];
+    [waveformLabel setBezeled:NO];
+    [waveformLabel setDrawsBackground:NO];
+    [waveformLabel setEditable:NO];
+    [waveformLabel setSelectable:NO];
+    [waveformLabel setFont:[NSFont systemFontOfSize:10]];
+    [waveformLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:waveformLabel];
 
-    [self addWaveformIconsAtX:x + 15 baseY:150];
-
-    lfoWaveformKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 45, 150, 20, 60)];
-    [lfoWaveformKnob setMinValue:0];
-    [lfoWaveformKnob setMaxValue:3];
-    [lfoWaveformKnob setNumberOfTickMarks:4];
-    [lfoWaveformKnob setAllowsTickMarkValuesOnly:YES];
-    AudioUnitParameterValue initialLFOWaveform = 0.0f;
-    if (mAU) {
-        AudioUnitGetParameter(mAU, kParam_LFO_Waveform, kAudioUnitScope_Global, 0, &initialLFOWaveform);
+    // Add small waveform icons
+    CGFloat iconWidth = 20.0;
+    CGFloat iconHeight = 10.0;
+    CGFloat spacing = 15.0;
+    for (int i = 0; i < 4; i++) {
+        CGFloat yPos = 370 + (i * spacing);
+        WaveformIconView *iconView = [[WaveformIconView alloc] initWithFrame:NSMakeRect(x + 10, yPos, iconWidth, iconHeight)];
+        iconView.waveformType = i;
+        [self addSubview:iconView];
     }
-    [lfoWaveformKnob setIntValue:(int)initialLFOWaveform];
-    [lfoWaveformKnob setTarget:self];
-    [lfoWaveformKnob setAction:@selector(lfoWaveformChanged:)];
-    [lfoWaveformKnob setContinuous:YES];
-    [self addSubview:lfoWaveformKnob];
 
-    // Rate knob (top right)
-    lfoRateLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 220, 80, 16)];
-    [lfoRateLabel setStringValue:@"Rate"];
-    [lfoRateLabel setAlignment:NSTextAlignmentCenter];
-    [lfoRateLabel setBezeled:NO];
-    [lfoRateLabel setDrawsBackground:NO];
-    [lfoRateLabel setEditable:NO];
-    [lfoRateLabel setSelectable:NO];
-    [lfoRateLabel setFont:[NSFont systemFontOfSize:10]];
-    [lfoRateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
-    [self addSubview:lfoRateLabel];
+    NSSlider *waveformKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 35, 370, 20, 45)];
+    [waveformKnob setMinValue:0];
+    [waveformKnob setMaxValue:3];
+    [waveformKnob setNumberOfTickMarks:4];
+    [waveformKnob setAllowsTickMarkValuesOnly:YES];
 
-    lfoRateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 155, 50, 50)];
-    [lfoRateKnob setMinValue:0.1];
-    [lfoRateKnob setMaxValue:20.0];
-    AudioUnitParameterValue initialLFORate = 5.0f;
+    AudioUnitParameterID waveformParamID = (lfoNum == 1) ? kParam_LFO1_Waveform : kParam_LFO2_Waveform;
+    AudioUnitParameterValue initialWaveform = 0.0f;
     if (mAU) {
-        AudioUnitGetParameter(mAU, kParam_LFO_Rate, kAudioUnitScope_Global, 0, &initialLFORate);
+        AudioUnitGetParameter(mAU, waveformParamID, kAudioUnitScope_Global, 0, &initialWaveform);
     }
-    [lfoRateKnob setDoubleValue:initialLFORate];
-    [lfoRateKnob setTarget:self];
-    [lfoRateKnob setAction:@selector(lfoRateChanged:)];
-    [lfoRateKnob setContinuous:YES];
-    [self addSubview:lfoRateKnob];
+    [waveformKnob setIntValue:(int)initialWaveform];
+    [waveformKnob setTarget:self];
+    if (lfoNum == 1) {
+        [waveformKnob setAction:@selector(lfo1WaveformChanged:)];
+        lfoWaveformKnob = waveformKnob;
+    } else {
+        [waveformKnob setAction:@selector(lfo2WaveformChanged:)];
+        lfo2WaveformKnob = waveformKnob;
+    }
+    [waveformKnob setContinuous:YES];
+    [self addSubview:waveformKnob];
 
-    lfoRateDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 85, 135, 80, 16)];
-    [lfoRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", initialLFORate]];
-    [lfoRateDisplay setAlignment:NSTextAlignmentCenter];
-    [lfoRateDisplay setBezeled:NO];
-    [lfoRateDisplay setDrawsBackground:NO];
-    [lfoRateDisplay setEditable:NO];
-    [lfoRateDisplay setSelectable:NO];
-    [lfoRateDisplay setFont:[NSFont systemFontOfSize:10]];
-    [lfoRateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
-    [self addSubview:lfoRateDisplay];
+    // Rate knob
+    NSTextField *rateLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 5, 335, 80, 16)];
+    [rateLabel setStringValue:@"Rate"];
+    [rateLabel setAlignment:NSTextAlignmentCenter];
+    [rateLabel setBezeled:NO];
+    [rateLabel setDrawsBackground:NO];
+    [rateLabel setEditable:NO];
+    [rateLabel setSelectable:NO];
+    [rateLabel setFont:[NSFont systemFontOfSize:10]];
+    [rateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:rateLabel];
 
-    // Pitch Amount (bottom left)
-    lfoPitchAmountLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 100, 60, 16)];
-    [lfoPitchAmountLabel setStringValue:@"Pitch Amt"];
-    [lfoPitchAmountLabel setAlignment:NSTextAlignmentCenter];
-    [lfoPitchAmountLabel setBezeled:NO];
-    [lfoPitchAmountLabel setDrawsBackground:NO];
-    [lfoPitchAmountLabel setEditable:NO];
-    [lfoPitchAmountLabel setSelectable:NO];
-    [lfoPitchAmountLabel setFont:[NSFont systemFontOfSize:10]];
-    [lfoPitchAmountLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
-    [self addSubview:lfoPitchAmountLabel];
+    RotaryKnob *rateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 275, 50, 50)];
+    [rateKnob setMinValue:0.1];
+    [rateKnob setMaxValue:20.0];
 
-    lfoPitchAmountKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 45, 50, 50)];
-    [lfoPitchAmountKnob setMinValue:-100.0];
-    [lfoPitchAmountKnob setMaxValue:100.0];
-    [lfoPitchAmountKnob setBipolar:YES];
-    AudioUnitParameterValue initialLFOPitchAmount = 0.0f;
+    AudioUnitParameterID rateParamID = (lfoNum == 1) ? kParam_LFO1_Rate : kParam_LFO2_Rate;
+    AudioUnitParameterValue initialRate = (lfoNum == 1) ? 5.0f : 3.0f;
     if (mAU) {
-        AudioUnitGetParameter(mAU, kParam_LFO_PitchAmount, kAudioUnitScope_Global, 0, &initialLFOPitchAmount);
+        AudioUnitGetParameter(mAU, rateParamID, kAudioUnitScope_Global, 0, &initialRate);
     }
-    [lfoPitchAmountKnob setDoubleValue:initialLFOPitchAmount];
-    [lfoPitchAmountKnob setTarget:self];
-    [lfoPitchAmountKnob setAction:@selector(lfoPitchAmountChanged:)];
-    [lfoPitchAmountKnob setContinuous:YES];
-    [self addSubview:lfoPitchAmountKnob];
+    [rateKnob setDoubleValue:initialRate];
+    [rateKnob setTarget:self];
 
-    lfoPitchAmountDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 15, 25, 60, 16)];
-    [lfoPitchAmountDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", initialLFOPitchAmount]];
-    [lfoPitchAmountDisplay setAlignment:NSTextAlignmentCenter];
-    [lfoPitchAmountDisplay setBezeled:NO];
-    [lfoPitchAmountDisplay setDrawsBackground:NO];
-    [lfoPitchAmountDisplay setEditable:NO];
-    [lfoPitchAmountDisplay setSelectable:NO];
-    [lfoPitchAmountDisplay setFont:[NSFont systemFontOfSize:9]];
-    [lfoPitchAmountDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
-    [self addSubview:lfoPitchAmountDisplay];
+    NSTextField *rateDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 5, 255, 80, 16)];
+    [rateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", initialRate]];
+    [rateDisplay setAlignment:NSTextAlignmentCenter];
+    [rateDisplay setBezeled:NO];
+    [rateDisplay setDrawsBackground:NO];
+    [rateDisplay setEditable:NO];
+    [rateDisplay setSelectable:NO];
+    [rateDisplay setFont:[NSFont systemFontOfSize:10]];
+    [rateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [self addSubview:rateDisplay];
 
-    // Filter Amount (bottom right)
-    lfoFilterAmountLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 100, 60, 16)];
-    [lfoFilterAmountLabel setStringValue:@"Filter Amt"];
-    [lfoFilterAmountLabel setAlignment:NSTextAlignmentCenter];
-    [lfoFilterAmountLabel setBezeled:NO];
-    [lfoFilterAmountLabel setDrawsBackground:NO];
-    [lfoFilterAmountLabel setEditable:NO];
-    [lfoFilterAmountLabel setSelectable:NO];
-    [lfoFilterAmountLabel setFont:[NSFont systemFontOfSize:10]];
-    [lfoFilterAmountLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
-    [self addSubview:lfoFilterAmountLabel];
-
-    lfoFilterAmountKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 45, 50, 50)];
-    [lfoFilterAmountKnob setMinValue:0.0];
-    [lfoFilterAmountKnob setMaxValue:10000.0];
-    AudioUnitParameterValue initialLFOFilterAmount = 0.0f;
-    if (mAU) {
-        AudioUnitGetParameter(mAU, kParam_LFO_FilterAmount, kAudioUnitScope_Global, 0, &initialLFOFilterAmount);
+    if (lfoNum == 1) {
+        [rateKnob setAction:@selector(lfo1RateChanged:)];
+        lfoRateKnob = rateKnob;
+        lfoRateDisplay = rateDisplay;
+    } else {
+        [rateKnob setAction:@selector(lfo2RateChanged:)];
+        lfo2RateKnob = rateKnob;
+        lfo2RateDisplay = rateDisplay;
     }
-    [lfoFilterAmountKnob setDoubleValue:initialLFOFilterAmount];
-    [lfoFilterAmountKnob setTarget:self];
-    [lfoFilterAmountKnob setAction:@selector(lfoFilterAmountChanged:)];
-    [lfoFilterAmountKnob setContinuous:YES];
-    [self addSubview:lfoFilterAmountKnob];
+    [rateKnob setContinuous:YES];
+    [self addSubview:rateKnob];
+}
 
-    lfoFilterAmountDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 95, 25, 60, 16)];
-    [lfoFilterAmountDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", initialLFOFilterAmount]];
-    [lfoFilterAmountDisplay setAlignment:NSTextAlignmentCenter];
-    [lfoFilterAmountDisplay setBezeled:NO];
-    [lfoFilterAmountDisplay setDrawsBackground:NO];
-    [lfoFilterAmountDisplay setEditable:NO];
-    [lfoFilterAmountDisplay setSelectable:NO];
-    [lfoFilterAmountDisplay setFont:[NSFont systemFontOfSize:9]];
-    [lfoFilterAmountDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
-    [self addSubview:lfoFilterAmountDisplay];
+- (void)createModulationMatrixSection {
+    // Section label
+    NSTextField *matrixLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 180, 1160, 20)];
+    [matrixLabel setStringValue:@"Modulation Matrix"];
+    [matrixLabel setAlignment:NSTextAlignmentLeft];
+    [matrixLabel setBezeled:NO];
+    [matrixLabel setDrawsBackground:NO];
+    [matrixLabel setEditable:NO];
+    [matrixLabel setSelectable:NO];
+    [matrixLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
+    [matrixLabel setTextColor:[NSColor whiteColor]];
+    [self addSubview:matrixLabel];
+
+    // Column headers
+    NSTextField *sourceHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(80, 155, 150, 16)];
+    [sourceHeader setStringValue:@"Source"];
+    [sourceHeader setAlignment:NSTextAlignmentCenter];
+    [sourceHeader setBezeled:NO];
+    [sourceHeader setDrawsBackground:NO];
+    [sourceHeader setEditable:NO];
+    [sourceHeader setSelectable:NO];
+    [sourceHeader setFont:[NSFont systemFontOfSize:11 weight:NSFontWeightMedium]];
+    [sourceHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:sourceHeader];
+
+    NSTextField *destHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(240, 155, 200, 16)];
+    [destHeader setStringValue:@"Destination"];
+    [destHeader setAlignment:NSTextAlignmentCenter];
+    [destHeader setBezeled:NO];
+    [destHeader setDrawsBackground:NO];
+    [destHeader setEditable:NO];
+    [destHeader setSelectable:NO];
+    [destHeader setFont:[NSFont systemFontOfSize:11 weight:NSFontWeightMedium]];
+    [destHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:destHeader];
+
+    NSTextField *intensityHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(450, 155, 100, 16)];
+    [intensityHeader setStringValue:@"Intensity"];
+    [intensityHeader setAlignment:NSTextAlignmentCenter];
+    [intensityHeader setBezeled:NO];
+    [intensityHeader setDrawsBackground:NO];
+    [intensityHeader setEditable:NO];
+    [intensityHeader setSelectable:NO];
+    [intensityHeader setFont:[NSFont systemFontOfSize:11 weight:NSFontWeightMedium]];
+    [intensityHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [self addSubview:intensityHeader];
+
+    // Create 4 modulation slots with tighter spacing
+    for (int slot = 0; slot < 4; slot++) {
+        int yPos = 130 - (slot * 30);
+
+        // Slot number label
+        NSTextField *slotLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, yPos + 10, 20, 16)];
+        [slotLabel setStringValue:[NSString stringWithFormat:@"%d", slot + 1]];
+        [slotLabel setAlignment:NSTextAlignmentCenter];
+        [slotLabel setBezeled:NO];
+        [slotLabel setDrawsBackground:NO];
+        [slotLabel setEditable:NO];
+        [slotLabel setSelectable:NO];
+        [slotLabel setFont:[NSFont systemFontOfSize:11]];
+        [slotLabel setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:slotLabel];
+
+        // Source popup
+        NSPopUpButton *sourcePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(80, yPos, 150, 25)];
+        [sourcePopup addItemWithTitle:@"None"];
+        [sourcePopup addItemWithTitle:@"LFO 1"];
+        [sourcePopup addItemWithTitle:@"LFO 2"];
+        [sourcePopup setTarget:self];
+        [sourcePopup setTag:slot];
+        [sourcePopup setAction:@selector(modSourceChanged:)];
+
+        AudioUnitParameterID sourceParamID = kParam_ModSlot1_Source + (slot * 3);
+        AudioUnitParameterValue initialSource = 0.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, sourceParamID, kAudioUnitScope_Global, 0, &initialSource);
+        }
+        [sourcePopup selectItemAtIndex:(int)initialSource];
+        [self addSubview:sourcePopup];
+
+        // Destination popup
+        NSPopUpButton *destPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(240, yPos, 200, 25)];
+        [destPopup addItemWithTitle:@"None"];
+        [destPopup addItemWithTitle:@"Filter Cutoff"];
+        [destPopup addItemWithTitle:@"Filter Resonance"];
+        [destPopup addItemWithTitle:@"Master Volume"];
+        [destPopup addItemWithTitle:@"Osc 1 Detune"];
+        [destPopup addItemWithTitle:@"Osc 1 Volume"];
+        [destPopup addItemWithTitle:@"Osc 2 Detune"];
+        [destPopup addItemWithTitle:@"Osc 2 Volume"];
+        [destPopup addItemWithTitle:@"Osc 3 Detune"];
+        [destPopup addItemWithTitle:@"Osc 3 Volume"];
+        [destPopup setTarget:self];
+        [destPopup setTag:slot];
+        [destPopup setAction:@selector(modDestChanged:)];
+
+        AudioUnitParameterID destParamID = kParam_ModSlot1_Dest + (slot * 3);
+        AudioUnitParameterValue initialDest = 0.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, destParamID, kAudioUnitScope_Global, 0, &initialDest);
+        }
+        [destPopup selectItemAtIndex:(int)initialDest];
+        [self addSubview:destPopup];
+
+        // Intensity knob (smaller)
+        RotaryKnob *intensityKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(475, yPos - 5, 40, 40)];
+        [intensityKnob setMinValue:0.0];
+        [intensityKnob setMaxValue:1.0];
+        [intensityKnob setTarget:self];
+        [intensityKnob setTag:slot];
+        [intensityKnob setAction:@selector(modIntensityChanged:)];
+
+        AudioUnitParameterID intensityParamID = kParam_ModSlot1_Intensity + (slot * 3);
+        AudioUnitParameterValue initialIntensity = 0.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, intensityParamID, kAudioUnitScope_Global, 0, &initialIntensity);
+        }
+        [intensityKnob setDoubleValue:initialIntensity];
+        [intensityKnob setContinuous:YES];
+        [self addSubview:intensityKnob];
+
+        // Intensity display
+        NSTextField *intensityDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(520, yPos + 5, 40, 16)];
+        [intensityDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialIntensity * 100.0]];
+        [intensityDisplay setAlignment:NSTextAlignmentCenter];
+        [intensityDisplay setBezeled:NO];
+        [intensityDisplay setDrawsBackground:NO];
+        [intensityDisplay setEditable:NO];
+        [intensityDisplay setSelectable:NO];
+        [intensityDisplay setFont:[NSFont systemFontOfSize:9]];
+        [intensityDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [intensityDisplay setTag:slot];  // Tag for finding it later
+        [self addSubview:intensityDisplay];
+    }
 }
 
 - (void)dealloc {
@@ -1009,36 +1108,79 @@
     }
 }
 
-// LFO
-- (void)lfoWaveformChanged:(id)sender {
+// LFO 1
+- (void)lfo1WaveformChanged:(id)sender {
     int value = [lfoWaveformKnob intValue];
     if (mAU) {
-        AudioUnitSetParameter(mAU, kParam_LFO_Waveform, kAudioUnitScope_Global, 0, (float)value, 0);
+        AudioUnitSetParameter(mAU, kParam_LFO1_Waveform, kAudioUnitScope_Global, 0, (float)value, 0);
     }
 }
 
-- (void)lfoRateChanged:(id)sender {
+- (void)lfo1RateChanged:(id)sender {
     float value = [lfoRateKnob floatValue];
     if (mAU) {
-        AudioUnitSetParameter(mAU, kParam_LFO_Rate, kAudioUnitScope_Global, 0, value, 0);
+        AudioUnitSetParameter(mAU, kParam_LFO1_Rate, kAudioUnitScope_Global, 0, value, 0);
     }
     [lfoRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
 }
 
-- (void)lfoPitchAmountChanged:(id)sender {
-    float value = [lfoPitchAmountKnob floatValue];
+// LFO 2
+- (void)lfo2WaveformChanged:(id)sender {
+    int value = [lfo2WaveformKnob intValue];
     if (mAU) {
-        AudioUnitSetParameter(mAU, kParam_LFO_PitchAmount, kAudioUnitScope_Global, 0, value, 0);
+        AudioUnitSetParameter(mAU, kParam_LFO2_Waveform, kAudioUnitScope_Global, 0, (float)value, 0);
     }
-    [lfoPitchAmountDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", value]];
 }
 
-- (void)lfoFilterAmountChanged:(id)sender {
-    float value = [lfoFilterAmountKnob floatValue];
+- (void)lfo2RateChanged:(id)sender {
+    float value = [lfo2RateKnob floatValue];
     if (mAU) {
-        AudioUnitSetParameter(mAU, kParam_LFO_FilterAmount, kAudioUnitScope_Global, 0, value, 0);
+        AudioUnitSetParameter(mAU, kParam_LFO2_Rate, kAudioUnitScope_Global, 0, value, 0);
     }
-    [lfoFilterAmountDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", value]];
+    [lfo2RateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
+}
+
+// Modulation Matrix
+- (void)modSourceChanged:(id)sender {
+    NSPopUpButton *popup = (NSPopUpButton *)sender;
+    int slot = (int)[popup tag];
+    int value = (int)[popup indexOfSelectedItem];
+    if (mAU) {
+        AudioUnitParameterID paramID = kParam_ModSlot1_Source + (slot * 3);
+        AudioUnitSetParameter(mAU, paramID, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
+- (void)modDestChanged:(id)sender {
+    NSPopUpButton *popup = (NSPopUpButton *)sender;
+    int slot = (int)[popup tag];
+    int value = (int)[popup indexOfSelectedItem];
+    if (mAU) {
+        AudioUnitParameterID paramID = kParam_ModSlot1_Dest + (slot * 3);
+        AudioUnitSetParameter(mAU, paramID, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
+- (void)modIntensityChanged:(id)sender {
+    RotaryKnob *knob = (RotaryKnob *)sender;
+    int slot = (int)[knob tag];
+    float value = [knob floatValue];
+    if (mAU) {
+        AudioUnitParameterID paramID = kParam_ModSlot1_Intensity + (slot * 3);
+        AudioUnitSetParameter(mAU, paramID, kAudioUnitScope_Global, 0, value, 0);
+    }
+
+    // Update the corresponding display
+    for (NSView *subview in [self subviews]) {
+        if ([subview isKindOfClass:[NSTextField class]] && [subview tag] == slot) {
+            NSTextField *display = (NSTextField *)subview;
+            // Check if this is an intensity display (not a slot label)
+            if ([[display stringValue] containsString:@"%"]) {
+                [display setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
+                break;
+            }
+        }
+    }
 }
 
 - (void)updateFromHost:(NSTimer *)timer {
@@ -1153,30 +1295,34 @@
         }
     }
 
-    // Update LFO parameters
-    if (AudioUnitGetParameter(mAU, kParam_LFO_Waveform, kAudioUnitScope_Global, 0, &value) == noErr) {
+    // Update LFO 1 parameters
+    if (AudioUnitGetParameter(mAU, kParam_LFO1_Waveform, kAudioUnitScope_Global, 0, &value) == noErr) {
         if ((int)value != [lfoWaveformKnob intValue]) {
             [lfoWaveformKnob setIntValue:(int)value];
         }
     }
-    if (AudioUnitGetParameter(mAU, kParam_LFO_Rate, kAudioUnitScope_Global, 0, &value) == noErr) {
+    if (AudioUnitGetParameter(mAU, kParam_LFO1_Rate, kAudioUnitScope_Global, 0, &value) == noErr) {
         if (fabs(value - [lfoRateKnob floatValue]) > 0.01f) {
             [lfoRateKnob setFloatValue:value];
             [lfoRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
         }
     }
-    if (AudioUnitGetParameter(mAU, kParam_LFO_PitchAmount, kAudioUnitScope_Global, 0, &value) == noErr) {
-        if (fabs(value - [lfoPitchAmountKnob floatValue]) > 0.1f) {
-            [lfoPitchAmountKnob setFloatValue:value];
-            [lfoPitchAmountDisplay setStringValue:[NSString stringWithFormat:@"%+.0fc", value]];
+
+    // Update LFO 2 parameters
+    if (AudioUnitGetParameter(mAU, kParam_LFO2_Waveform, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if ((int)value != [lfo2WaveformKnob intValue]) {
+            [lfo2WaveformKnob setIntValue:(int)value];
         }
     }
-    if (AudioUnitGetParameter(mAU, kParam_LFO_FilterAmount, kAudioUnitScope_Global, 0, &value) == noErr) {
-        if (fabs(value - [lfoFilterAmountKnob floatValue]) > 10.0f) {
-            [lfoFilterAmountKnob setFloatValue:value];
-            [lfoFilterAmountDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", value]];
+    if (AudioUnitGetParameter(mAU, kParam_LFO2_Rate, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [lfo2RateKnob floatValue]) > 0.01f) {
+            [lfo2RateKnob setFloatValue:value];
+            [lfo2RateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
         }
     }
+
+    // Note: Modulation matrix parameters are not polled in updateFromHost
+    // since they are typically only changed by the user via the UI
 }
 
 @end

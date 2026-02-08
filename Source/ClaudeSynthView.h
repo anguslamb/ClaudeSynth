@@ -79,19 +79,15 @@
     NSTextField *releaseLabel;
     NSTextField *releaseDisplay;
 
-    // LFO
-    NSTextField *lfoLabel;
+    // LFO 1
     NSSlider *lfoWaveformKnob;
-    NSTextField *lfoWaveformLabel;
     RotaryKnob *lfoRateKnob;
-    NSTextField *lfoRateLabel;
     NSTextField *lfoRateDisplay;
-    RotaryKnob *lfoPitchAmountKnob;
-    NSTextField *lfoPitchAmountLabel;
-    NSTextField *lfoPitchAmountDisplay;
-    RotaryKnob *lfoFilterAmountKnob;
-    NSTextField *lfoFilterAmountLabel;
-    NSTextField *lfoFilterAmountDisplay;
+
+    // LFO 2
+    NSSlider *lfo2WaveformKnob;
+    RotaryKnob *lfo2RateKnob;
+    NSTextField *lfo2RateDisplay;
 
     NSTextField *titleLabel;
     NSTimer *updateTimer;
@@ -117,10 +113,13 @@
 - (void)decayChanged:(id)sender;
 - (void)sustainChanged:(id)sender;
 - (void)releaseChanged:(id)sender;
-- (void)lfoWaveformChanged:(id)sender;
-- (void)lfoRateChanged:(id)sender;
-- (void)lfoPitchAmountChanged:(id)sender;
-- (void)lfoFilterAmountChanged:(id)sender;
+- (void)lfo1WaveformChanged:(id)sender;
+- (void)lfo1RateChanged:(id)sender;
+- (void)lfo2WaveformChanged:(id)sender;
+- (void)lfo2RateChanged:(id)sender;
+- (void)modSourceChanged:(id)sender;
+- (void)modDestChanged:(id)sender;
+- (void)modIntensityChanged:(id)sender;
 - (void)updateFromHost:(NSTimer *)timer;
 
 @end

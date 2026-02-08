@@ -5,6 +5,28 @@
 #include "SynthVoice.h"
 
 static const int kNumVoices = 16;
+static const int kNumModSlots = 4;
+
+// Modulation Matrix Sources
+enum ModSource {
+    kModSource_None = 0,
+    kModSource_LFO1 = 1,
+    kModSource_LFO2 = 2
+};
+
+// Modulation Matrix Destinations
+enum ModDest {
+    kModDest_None = 0,
+    kModDest_FilterCutoff = 1,
+    kModDest_FilterResonance = 2,
+    kModDest_MasterVolume = 3,
+    kModDest_Osc1_Detune = 4,
+    kModDest_Osc1_Volume = 5,
+    kModDest_Osc2_Detune = 6,
+    kModDest_Osc2_Volume = 7,
+    kModDest_Osc3_Detune = 8,
+    kModDest_Osc3_Volume = 9
+};
 
 // Parameter IDs
 enum {
@@ -33,11 +55,30 @@ enum {
     kParam_EnvSustain = 17,
     kParam_EnvRelease = 18,
 
-    // LFO
-    kParam_LFO_Waveform = 19,
-    kParam_LFO_Rate = 20,
-    kParam_LFO_PitchAmount = 21,
-    kParam_LFO_FilterAmount = 22
+    // LFO 1
+    kParam_LFO1_Waveform = 19,
+    kParam_LFO1_Rate = 20,
+
+    // LFO 2
+    kParam_LFO2_Waveform = 21,
+    kParam_LFO2_Rate = 22,
+
+    // Modulation Matrix (4 slots x 3 params each)
+    kParam_ModSlot1_Source = 23,
+    kParam_ModSlot1_Dest = 24,
+    kParam_ModSlot1_Intensity = 25,
+
+    kParam_ModSlot2_Source = 26,
+    kParam_ModSlot2_Dest = 27,
+    kParam_ModSlot2_Intensity = 28,
+
+    kParam_ModSlot3_Source = 29,
+    kParam_ModSlot3_Dest = 30,
+    kParam_ModSlot3_Intensity = 31,
+
+    kParam_ModSlot4_Source = 32,
+    kParam_ModSlot4_Dest = 33,
+    kParam_ModSlot4_Intensity = 34
 };
 
 struct OscillatorSettings {
@@ -65,12 +106,22 @@ struct ClaudeSynthData {
     float envSustain;
     float envRelease;
 
-    // LFO
-    int lfoWaveform;
-    float lfoRate;
-    float lfoPitchAmount;
-    float lfoFilterAmount;
-    double lfoPhase;  // Global LFO phase shared by all voices
+    // LFO 1
+    int lfo1Waveform;
+    float lfo1Rate;
+    double lfo1Phase;
+
+    // LFO 2
+    int lfo2Waveform;
+    float lfo2Rate;
+    double lfo2Phase;
+
+    // Modulation Matrix
+    struct ModSlot {
+        int source;      // ModSource enum
+        int destination; // ModDest enum
+        float intensity; // 0.0 to 1.0
+    } modSlots[kNumModSlots];
 };
 
 // Helper functions
