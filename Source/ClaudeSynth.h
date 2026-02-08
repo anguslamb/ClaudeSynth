@@ -85,7 +85,12 @@ enum {
 
     kParam_ModSlot4_Source = 36,
     kParam_ModSlot4_Dest = 37,
-    kParam_ModSlot4_Intensity = 38
+    kParam_ModSlot4_Intensity = 38,
+
+    // Effects parameters
+    kParam_EffectType = 39,      // 0=None, 1=Chorus, 2=Phaser, 3=Flanger
+    kParam_EffectRate = 40,      // 0.1 to 10 Hz
+    kParam_EffectIntensity = 41  // 0.0 to 1.0
 };
 
 struct OscillatorSettings {
@@ -139,6 +144,27 @@ struct ClaudeSynthData {
         int destination; // ModDest enum
         float intensity; // 0.0 to 1.0
     } modSlots[kNumModSlots];
+
+    // Effects Section
+    int effectType;         // 0=None, 1=Chorus, 2=Phaser, 3=Flanger
+    float effectRate;       // LFO rate: 0.1 to 10 Hz
+    float effectIntensity;  // Effect depth: 0.0 to 1.0
+    double effectLFOPhase;  // LFO phase accumulator
+
+    // Chorus state
+    static const int kChorusDelayBufferSize = 2048;  // Enough for 42ms at 48kHz
+    float chorusDelayBuffer[kChorusDelayBufferSize];
+    int chorusWritePos;
+
+    // Phaser state (4 all-pass filters)
+    float phaserState1, phaserState2, phaserState3, phaserState4;
+    float phaserFeedbackSample;
+
+    // Flanger state
+    static const int kFlangerDelayBufferSize = 1024;  // Enough for 21ms at 48kHz
+    float flangerDelayBuffer[kFlangerDelayBufferSize];
+    int flangerWritePos;
+    float flangerFeedbackSample;
 };
 
 // Helper functions

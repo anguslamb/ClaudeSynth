@@ -139,6 +139,26 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
         data->modSlots[i].intensity = 0.0f;
     }
 
+    // Initialize effects parameters
+    data->effectType = 0;           // None by default
+    data->effectRate = 1.0f;        // 1 Hz
+    data->effectIntensity = 0.5f;   // 50%
+    data->effectLFOPhase = 0.0;
+
+    // Initialize effect state
+    data->chorusWritePos = 0;
+    memset(data->chorusDelayBuffer, 0, sizeof(data->chorusDelayBuffer));
+
+    data->phaserState1 = 0.0f;
+    data->phaserState2 = 0.0f;
+    data->phaserState3 = 0.0f;
+    data->phaserState4 = 0.0f;
+    data->phaserFeedbackSample = 0.0f;
+
+    data->flangerWritePos = 0;
+    memset(data->flangerDelayBuffer, 0, sizeof(data->flangerDelayBuffer));
+    data->flangerFeedbackSample = 0.0f;
+
     ClaudeLog("Factory: initialized parameters");
 
     return &data->pluginInterface;
@@ -231,7 +251,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 23;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 42;
             if (outWritable) *outWritable = 0;
             return noErr;
 
@@ -362,7 +382,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID) * 39)
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 42)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
@@ -405,7 +425,10 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                 paramList[36] = kParam_ModSlot4_Source;
                 paramList[37] = kParam_ModSlot4_Dest;
                 paramList[38] = kParam_ModSlot4_Intensity;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 39;
+                paramList[39] = kParam_EffectType;
+                paramList[40] = kParam_EffectRate;
+                paramList[41] = kParam_EffectIntensity;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 42;
             }
             return noErr;
 
@@ -739,6 +762,30 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->cfNameString = CFSTR("Mod 4 Intensity");
                         break;
 
+                    case kParam_EffectType:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 3.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Effect Type");
+                        break;
+
+                    case kParam_EffectRate:
+                        info->unit = kAudioUnitParameterUnit_Hertz;
+                        info->minValue = 0.1f;
+                        info->maxValue = 10.0f;
+                        info->defaultValue = 1.0f;
+                        info->cfNameString = CFSTR("Effect Rate");
+                        break;
+
+                    case kParam_EffectIntensity:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.5f;
+                        info->cfNameString = CFSTR("Effect Intensity");
+                        break;
+
                     default:
                         return kAudioUnitErr_InvalidParameter;
                 }
@@ -913,6 +960,117 @@ static OSStatus ClaudeSynth_Uninitialize(void *self) {
         data->voices[i].NoteOff();
     }
     return noErr;
+}
+
+// Chorus Effect - creates a doubling/thickening effect
+static float ProcessChorusEffect(ClaudeSynthData *data, float inputSample, float lfoValue) {
+    // Write input to delay buffer
+    data->chorusDelayBuffer[data->chorusWritePos] = inputSample;
+
+    // Calculate delay time with reduced depth for smoother modulation
+    float baseDelaySamples = 0.015f * data->sampleRate;  // 15ms base
+    float modDepthSamples = 0.002f * data->sampleRate;   // ±2ms modulation
+    float delayTimeSamples = baseDelaySamples + (lfoValue * modDepthSamples);
+
+    // Calculate read position with proper wrapping
+    float readPosFloat = (float)data->chorusWritePos - delayTimeSamples;
+    while (readPosFloat < 0.0f) {
+        readPosFloat += ClaudeSynthData::kChorusDelayBufferSize;
+    }
+    while (readPosFloat >= ClaudeSynthData::kChorusDelayBufferSize) {
+        readPosFloat -= ClaudeSynthData::kChorusDelayBufferSize;
+    }
+
+    // Linear interpolation between samples
+    int readPos1 = (int)readPosFloat;
+    int readPos2 = (readPos1 + 1) % ClaudeSynthData::kChorusDelayBufferSize;
+    float frac = readPosFloat - (float)readPos1;
+
+    float delayedSample = data->chorusDelayBuffer[readPos1] * (1.0f - frac) +
+                          data->chorusDelayBuffer[readPos2] * frac;
+
+    // Mix dry and wet signals (classic chorus uses 50/50 mix)
+    float wetAmount = data->effectIntensity;
+    float output = inputSample * (1.0f - wetAmount * 0.5f) + delayedSample * wetAmount * 0.5f;
+
+    // Advance write position
+    data->chorusWritePos = (data->chorusWritePos + 1) % ClaudeSynthData::kChorusDelayBufferSize;
+
+    return output;
+}
+
+// Phaser Effect - creates sweeping notch filter effect
+static float ProcessPhaserEffect(ClaudeSynthData *data, float inputSample, float lfoValue) {
+    float centerFreq = 200.0f + (lfoValue * 0.5f + 0.5f) * 1800.0f;
+
+    float omega = M_PI * centerFreq / data->sampleRate;
+    float tanOmega = tanf(omega);
+    float a = (tanOmega - 1.0f) / (tanOmega + 1.0f);
+
+    float stage1 = a * inputSample + data->phaserState1;
+    data->phaserState1 = inputSample - a * stage1;
+
+    float stage2 = a * stage1 + data->phaserState2;
+    data->phaserState2 = stage1 - a * stage2;
+
+    float stage3 = a * stage2 + data->phaserState3;
+    data->phaserState3 = stage2 - a * stage3;
+
+    float stage4 = a * stage3 + data->phaserState4;
+    data->phaserState4 = stage3 - a * stage4;
+
+    float feedback = data->effectIntensity * 0.7f;
+    float phasedSignal = stage4 + data->phaserFeedbackSample * feedback;
+    data->phaserFeedbackSample = phasedSignal;
+
+    float output = inputSample + phasedSignal * 0.5f;
+
+    return output;
+}
+
+// Flanger Effect - creates jet plane whoosh effect
+static float ProcessFlangerEffect(ClaudeSynthData *data, float inputSample, float lfoValue) {
+    // Apply feedback with softer limiting
+    float feedback = data->effectIntensity * 0.7f;  // Reduced from 0.9 to prevent harsh distortion
+    float inputWithFeedback = inputSample + data->flangerFeedbackSample * feedback;
+
+    // Soft clipping to prevent harsh distortion
+    if (inputWithFeedback > 1.0f) inputWithFeedback = 1.0f;
+    if (inputWithFeedback < -1.0f) inputWithFeedback = -1.0f;
+
+    data->flangerDelayBuffer[data->flangerWritePos] = inputWithFeedback;
+
+    // Calculate delay time (sweeps from 1ms to 4ms)
+    float minDelay = 0.001f * data->sampleRate;  // 1ms
+    float maxDelay = 0.004f * data->sampleRate;  // 4ms
+    float delayTimeSamples = minDelay + (lfoValue * 0.5f + 0.5f) * (maxDelay - minDelay);
+
+    // Calculate read position with proper wrapping
+    float readPosFloat = (float)data->flangerWritePos - delayTimeSamples;
+    while (readPosFloat < 0.0f) {
+        readPosFloat += ClaudeSynthData::kFlangerDelayBufferSize;
+    }
+    while (readPosFloat >= ClaudeSynthData::kFlangerDelayBufferSize) {
+        readPosFloat -= ClaudeSynthData::kFlangerDelayBufferSize;
+    }
+
+    // Linear interpolation
+    int readPos1 = (int)readPosFloat;
+    int readPos2 = (readPos1 + 1) % ClaudeSynthData::kFlangerDelayBufferSize;
+    float frac = readPosFloat - (float)readPos1;
+
+    float delayedSample = data->flangerDelayBuffer[readPos1] * (1.0f - frac) +
+                          data->flangerDelayBuffer[readPos2] * frac;
+
+    data->flangerFeedbackSample = delayedSample;
+
+    // Mix dry and wet
+    float output = inputSample * 0.5f + delayedSample * 0.5f;
+
+    // Advance write position
+    data->flangerWritePos = (data->flangerWritePos + 1) % ClaudeSynthData::kFlangerDelayBufferSize;
+
+    return output;
 }
 
 // Update global filter envelope
@@ -1128,10 +1286,47 @@ static OSStatus ClaudeSynth_Render(void *self,
         }
 
         float sample = 0.0f;
+        bool hasActiveVoices = false;
 
         for (int voice = 0; voice < kNumVoices; voice++) {
             if (data->voices[voice].IsActive()) {
                 sample += data->voices[voice].RenderSample(modValues);
+                hasActiveVoices = true;
+            }
+        }
+
+        // Apply effects before master volume (only if there are active voices or recent audio)
+        if (data->effectType > 0 && (hasActiveVoices || fabs(sample) > 0.00001f)) {
+            // Update effect LFO
+            double effectLFOIncrement = (data->effectRate / data->sampleRate) * 2.0 * M_PI;
+            data->effectLFOPhase += effectLFOIncrement;
+            if (data->effectLFOPhase >= 2.0 * M_PI) {
+                data->effectLFOPhase -= 2.0 * M_PI;
+            }
+            float lfoValue = sinf(data->effectLFOPhase);  // -1 to +1
+
+            // Apply selected effect
+            if (data->effectType == 1) {
+                sample = ProcessChorusEffect(data, sample, lfoValue);
+            } else if (data->effectType == 2) {
+                sample = ProcessPhaserEffect(data, sample, lfoValue);
+            } else if (data->effectType == 3) {
+                sample = ProcessFlangerEffect(data, sample, lfoValue);
+            }
+        } else if (data->effectType > 0) {
+            // Clear effect buffers when no audio to prevent noise buildup
+            if (data->effectType == 1) {
+                // Chorus: write silence to buffer
+                data->chorusDelayBuffer[data->chorusWritePos] = 0.0f;
+                data->chorusWritePos = (data->chorusWritePos + 1) % ClaudeSynthData::kChorusDelayBufferSize;
+            } else if (data->effectType == 2) {
+                // Phaser: gradually decay state
+                data->phaserFeedbackSample *= 0.99f;
+            } else if (data->effectType == 3) {
+                // Flanger: write silence to buffer
+                data->flangerDelayBuffer[data->flangerWritePos] = 0.0f;
+                data->flangerWritePos = (data->flangerWritePos + 1) % ClaudeSynthData::kFlangerDelayBufferSize;
+                data->flangerFeedbackSample *= 0.99f;
             }
         }
 
@@ -1475,6 +1670,18 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
             data->modSlots[3].intensity = inValue;
             return noErr;
 
+        case kParam_EffectType:
+            data->effectType = (int)inValue;
+            return noErr;
+
+        case kParam_EffectRate:
+            data->effectRate = inValue;
+            return noErr;
+
+        case kParam_EffectIntensity:
+            data->effectIntensity = inValue;
+            return noErr;
+
         default:
             return kAudioUnitErr_InvalidParameter;
     }
@@ -1650,6 +1857,18 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
 
         case kParam_ModSlot4_Intensity:
             *outValue = data->modSlots[3].intensity;
+            return noErr;
+
+        case kParam_EffectType:
+            *outValue = (float)data->effectType;
+            return noErr;
+
+        case kParam_EffectRate:
+            *outValue = data->effectRate;
+            return noErr;
+
+        case kParam_EffectIntensity:
+            *outValue = data->effectIntensity;
             return noErr;
 
         default:

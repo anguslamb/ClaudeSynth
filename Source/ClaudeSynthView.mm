@@ -422,6 +422,124 @@
         // ===== MODULATION MATRIX SECTION =====
         [self createModulationMatrixSection];
 
+        // ===== EFFECTS SECTION =====
+        // Place in bottom section, to the right of modulation matrix
+        int effectsX = 600;
+        int effectsY = 10;
+
+        // Section label
+        NSTextField *effectsLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 50, effectsY + 160, 200, 20)];
+        [effectsLabel setStringValue:@"Effects"];
+        [effectsLabel setAlignment:NSTextAlignmentCenter];
+        [effectsLabel setBezeled:NO];
+        [effectsLabel setDrawsBackground:NO];
+        [effectsLabel setEditable:NO];
+        [effectsLabel setSelectable:NO];
+        [effectsLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
+        [effectsLabel setTextColor:[NSColor whiteColor]];
+        [self addSubview:effectsLabel];
+
+        // Effect Type selector
+        NSTextField *effectTypeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 50, effectsY + 135, 200, 16)];
+        [effectTypeLabel setStringValue:@"Effect Type"];
+        [effectTypeLabel setAlignment:NSTextAlignmentCenter];
+        [effectTypeLabel setBezeled:NO];
+        [effectTypeLabel setDrawsBackground:NO];
+        [effectTypeLabel setEditable:NO];
+        [effectTypeLabel setSelectable:NO];
+        [effectTypeLabel setFont:[NSFont systemFontOfSize:11]];
+        [effectTypeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:effectTypeLabel];
+
+        effectTypePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(effectsX + 70, effectsY + 110, 160, 25)];
+        [effectTypePopup addItemWithTitle:@"None"];
+        [effectTypePopup addItemWithTitle:@"Chorus"];
+        [effectTypePopup addItemWithTitle:@"Phaser"];
+        [effectTypePopup addItemWithTitle:@"Flanger"];
+        [effectTypePopup setTarget:self];
+        [effectTypePopup setAction:@selector(effectTypeChanged:)];
+
+        AudioUnitParameterValue initialEffectType = 0.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_EffectType, kAudioUnitScope_Global, 0, &initialEffectType);
+        }
+        [effectTypePopup selectItemAtIndex:(int)initialEffectType];
+        [self addSubview:effectTypePopup];
+
+        // Rate knob
+        NSTextField *rateLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 20, effectsY + 75, 80, 16)];
+        [rateLabel setStringValue:@"Rate"];
+        [rateLabel setAlignment:NSTextAlignmentCenter];
+        [rateLabel setBezeled:NO];
+        [rateLabel setDrawsBackground:NO];
+        [rateLabel setEditable:NO];
+        [rateLabel setSelectable:NO];
+        [rateLabel setFont:[NSFont systemFontOfSize:11]];
+        [rateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:rateLabel];
+
+        effectRateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(effectsX + 35, effectsY + 25, 50, 50)];
+        [effectRateKnob setMinValue:0.1];
+        [effectRateKnob setMaxValue:10.0];
+
+        AudioUnitParameterValue initialRate = 1.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_EffectRate, kAudioUnitScope_Global, 0, &initialRate);
+        }
+        [effectRateKnob setDoubleValue:initialRate];
+        [effectRateKnob setTarget:self];
+        [effectRateKnob setAction:@selector(effectRateChanged:)];
+        [effectRateKnob setContinuous:YES];
+        [self addSubview:effectRateKnob];
+
+        effectRateDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 20, effectsY + 5, 80, 16)];
+        [effectRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", initialRate]];
+        [effectRateDisplay setAlignment:NSTextAlignmentCenter];
+        [effectRateDisplay setBezeled:NO];
+        [effectRateDisplay setDrawsBackground:NO];
+        [effectRateDisplay setEditable:NO];
+        [effectRateDisplay setSelectable:NO];
+        [effectRateDisplay setFont:[NSFont systemFontOfSize:10]];
+        [effectRateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:effectRateDisplay];
+
+        // Intensity knob
+        NSTextField *intensityLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 160, effectsY + 75, 80, 16)];
+        [intensityLabel setStringValue:@"Intensity"];
+        [intensityLabel setAlignment:NSTextAlignmentCenter];
+        [intensityLabel setBezeled:NO];
+        [intensityLabel setDrawsBackground:NO];
+        [intensityLabel setEditable:NO];
+        [intensityLabel setSelectable:NO];
+        [intensityLabel setFont:[NSFont systemFontOfSize:11]];
+        [intensityLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:intensityLabel];
+
+        effectIntensityKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(effectsX + 175, effectsY + 25, 50, 50)];
+        [effectIntensityKnob setMinValue:0.0];
+        [effectIntensityKnob setMaxValue:1.0];
+
+        AudioUnitParameterValue initialIntensity = 0.5f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_EffectIntensity, kAudioUnitScope_Global, 0, &initialIntensity);
+        }
+        [effectIntensityKnob setDoubleValue:initialIntensity];
+        [effectIntensityKnob setTarget:self];
+        [effectIntensityKnob setAction:@selector(effectIntensityChanged:)];
+        [effectIntensityKnob setContinuous:YES];
+        [self addSubview:effectIntensityKnob];
+
+        effectIntensityDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 160, effectsY + 5, 80, 16)];
+        [effectIntensityDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialIntensity * 100.0]];
+        [effectIntensityDisplay setAlignment:NSTextAlignmentCenter];
+        [effectIntensityDisplay setBezeled:NO];
+        [effectIntensityDisplay setDrawsBackground:NO];
+        [effectIntensityDisplay setEditable:NO];
+        [effectIntensityDisplay setSelectable:NO];
+        [effectIntensityDisplay setFont:[NSFont systemFontOfSize:10]];
+        [effectIntensityDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:effectIntensityDisplay];
+
         // Start timer to poll for host automation updates
         updateTimer = [NSTimer scheduledTimerWithTimeInterval:0.1
                                                        target:self
@@ -1204,6 +1322,29 @@
     }
 }
 
+- (void)effectTypeChanged:(id)sender {
+    int value = (int)[effectTypePopup indexOfSelectedItem];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_EffectType, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
+- (void)effectRateChanged:(id)sender {
+    float value = [effectRateKnob floatValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_EffectRate, kAudioUnitScope_Global, 0, value, 0);
+    }
+    [effectRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
+}
+
+- (void)effectIntensityChanged:(id)sender {
+    float value = [effectIntensityKnob floatValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_EffectIntensity, kAudioUnitScope_Global, 0, value, 0);
+    }
+    [effectIntensityDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
+}
+
 - (void)updateFromHost:(NSTimer *)timer {
     if (!mAU) return;
 
@@ -1374,6 +1515,25 @@
         if (fabs(value - [lfo2RateKnob floatValue]) > 0.01f) {
             [lfo2RateKnob setFloatValue:value];
             [lfo2RateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
+        }
+    }
+
+    // Update effects parameters
+    if (AudioUnitGetParameter(mAU, kParam_EffectType, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if ((int)value != [effectTypePopup indexOfSelectedItem]) {
+            [effectTypePopup selectItemAtIndex:(int)value];
+        }
+    }
+    if (AudioUnitGetParameter(mAU, kParam_EffectRate, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [effectRateKnob floatValue]) > 0.01f) {
+            [effectRateKnob setFloatValue:value];
+            [effectRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
+        }
+    }
+    if (AudioUnitGetParameter(mAU, kParam_EffectIntensity, kAudioUnitScope_Global, 0, &value) == noErr) {
+        if (fabs(value - [effectIntensityKnob floatValue]) > 0.01f) {
+            [effectIntensityKnob setFloatValue:value];
+            [effectIntensityDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
         }
     }
 

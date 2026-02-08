@@ -93,6 +93,13 @@
 
     NSTextField *titleLabel;
     NSTimer *updateTimer;
+
+    // Effects
+    NSPopUpButton *effectTypePopup;
+    RotaryKnob *effectRateKnob;
+    NSTextField *effectRateDisplay;
+    RotaryKnob *effectIntensityKnob;
+    NSTextField *effectIntensityDisplay;
 }
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au;
