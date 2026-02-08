@@ -112,6 +112,16 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
     data->envSustain = 0.7f;   // 70% sustain level
     data->envRelease = 0.3f;   // 300ms release
 
+    // Filter envelope defaults (Global)
+    data->filterEnvAttack = 0.01f;
+    data->filterEnvDecay = 0.1f;
+    data->filterEnvSustain = 1.0f;  // Full sustain by default
+    data->filterEnvRelease = 0.3f;
+    data->filterEnvLevel = 0.0f;
+    data->filterEnvStage = kEnvStage_Idle;
+    data->filterEnvReleaseStartLevel = 0.0f;
+    data->activeNoteCount = 0;
+
     // LFO 1 defaults
     data->lfo1Waveform = 0;     // Sine
     data->lfo1Rate = 5.0f;      // 5 Hz
@@ -352,7 +362,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID) * 35)
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 39)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
@@ -375,23 +385,27 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                 paramList[16] = kParam_EnvDecay;
                 paramList[17] = kParam_EnvSustain;
                 paramList[18] = kParam_EnvRelease;
-                paramList[19] = kParam_LFO1_Waveform;
-                paramList[20] = kParam_LFO1_Rate;
-                paramList[21] = kParam_LFO2_Waveform;
-                paramList[22] = kParam_LFO2_Rate;
-                paramList[23] = kParam_ModSlot1_Source;
-                paramList[24] = kParam_ModSlot1_Dest;
-                paramList[25] = kParam_ModSlot1_Intensity;
-                paramList[26] = kParam_ModSlot2_Source;
-                paramList[27] = kParam_ModSlot2_Dest;
-                paramList[28] = kParam_ModSlot2_Intensity;
-                paramList[29] = kParam_ModSlot3_Source;
-                paramList[30] = kParam_ModSlot3_Dest;
-                paramList[31] = kParam_ModSlot3_Intensity;
-                paramList[32] = kParam_ModSlot4_Source;
-                paramList[33] = kParam_ModSlot4_Dest;
-                paramList[34] = kParam_ModSlot4_Intensity;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 35;
+                paramList[19] = kParam_FilterEnvAttack;
+                paramList[20] = kParam_FilterEnvDecay;
+                paramList[21] = kParam_FilterEnvSustain;
+                paramList[22] = kParam_FilterEnvRelease;
+                paramList[23] = kParam_LFO1_Waveform;
+                paramList[24] = kParam_LFO1_Rate;
+                paramList[25] = kParam_LFO2_Waveform;
+                paramList[26] = kParam_LFO2_Rate;
+                paramList[27] = kParam_ModSlot1_Source;
+                paramList[28] = kParam_ModSlot1_Dest;
+                paramList[29] = kParam_ModSlot1_Intensity;
+                paramList[30] = kParam_ModSlot2_Source;
+                paramList[31] = kParam_ModSlot2_Dest;
+                paramList[32] = kParam_ModSlot2_Intensity;
+                paramList[33] = kParam_ModSlot3_Source;
+                paramList[34] = kParam_ModSlot3_Dest;
+                paramList[35] = kParam_ModSlot3_Intensity;
+                paramList[36] = kParam_ModSlot4_Source;
+                paramList[37] = kParam_ModSlot4_Dest;
+                paramList[38] = kParam_ModSlot4_Intensity;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 39;
             }
             return noErr;
 
@@ -560,6 +574,39 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->cfNameString = CFSTR("Env Release");
                         break;
 
+                    // Filter Envelope
+                    case kParam_FilterEnvAttack:
+                        info->unit = kAudioUnitParameterUnit_Seconds;
+                        info->minValue = 0.001f;
+                        info->maxValue = 5.0f;
+                        info->defaultValue = 0.01f;
+                        info->cfNameString = CFSTR("Filter Env Attack");
+                        break;
+
+                    case kParam_FilterEnvDecay:
+                        info->unit = kAudioUnitParameterUnit_Seconds;
+                        info->minValue = 0.001f;
+                        info->maxValue = 5.0f;
+                        info->defaultValue = 0.1f;
+                        info->cfNameString = CFSTR("Filter Env Decay");
+                        break;
+
+                    case kParam_FilterEnvSustain:
+                        info->unit = kAudioUnitParameterUnit_LinearGain;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 1.0f;
+                        info->cfNameString = CFSTR("Filter Env Sustain");
+                        break;
+
+                    case kParam_FilterEnvRelease:
+                        info->unit = kAudioUnitParameterUnit_Seconds;
+                        info->minValue = 0.001f;
+                        info->maxValue = 5.0f;
+                        info->defaultValue = 0.3f;
+                        info->cfNameString = CFSTR("Filter Env Release");
+                        break;
+
                     case kParam_LFO1_Waveform:
                         info->unit = kAudioUnitParameterUnit_Indexed;
                         info->minValue = 0.0f;
@@ -596,7 +643,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_ModSlot1_Source:
                         info->unit = kAudioUnitParameterUnit_Indexed;
                         info->minValue = 0.0f;
-                        info->maxValue = 2.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.0f;
                         info->cfNameString = CFSTR("Mod 1 Source");
                         break;
@@ -621,7 +668,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_ModSlot2_Source:
                         info->unit = kAudioUnitParameterUnit_Indexed;
                         info->minValue = 0.0f;
-                        info->maxValue = 2.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.0f;
                         info->cfNameString = CFSTR("Mod 2 Source");
                         break;
@@ -646,7 +693,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_ModSlot3_Source:
                         info->unit = kAudioUnitParameterUnit_Indexed;
                         info->minValue = 0.0f;
-                        info->maxValue = 2.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.0f;
                         info->cfNameString = CFSTR("Mod 3 Source");
                         break;
@@ -671,7 +718,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_ModSlot4_Source:
                         info->unit = kAudioUnitParameterUnit_Indexed;
                         info->minValue = 0.0f;
-                        info->maxValue = 2.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.0f;
                         info->cfNameString = CFSTR("Mod 4 Source");
                         break;
@@ -868,6 +915,61 @@ static OSStatus ClaudeSynth_Uninitialize(void *self) {
     return noErr;
 }
 
+// Update global filter envelope
+static void UpdateGlobalFilterEnvelope(ClaudeSynthData *data) {
+    switch (data->filterEnvStage) {
+        case kEnvStage_Idle:
+            data->filterEnvLevel = 0.0f;
+            break;
+
+        case kEnvStage_Attack:
+            if (data->filterEnvAttack > 0.0001f) {
+                float attackRate = 1.0f / (data->filterEnvAttack * data->sampleRate);
+                data->filterEnvLevel += attackRate;
+                if (data->filterEnvLevel >= 1.0f) {
+                    data->filterEnvLevel = 1.0f;
+                    data->filterEnvStage = kEnvStage_Decay;
+                }
+            } else {
+                data->filterEnvLevel = 1.0f;
+                data->filterEnvStage = kEnvStage_Decay;
+            }
+            break;
+
+        case kEnvStage_Decay:
+            if (data->filterEnvDecay > 0.0001f) {
+                float decayRate = (1.0f - data->filterEnvSustain) / (data->filterEnvDecay * data->sampleRate);
+                data->filterEnvLevel -= decayRate;
+                if (data->filterEnvLevel <= data->filterEnvSustain) {
+                    data->filterEnvLevel = data->filterEnvSustain;
+                    data->filterEnvStage = kEnvStage_Sustain;
+                }
+            } else {
+                data->filterEnvLevel = data->filterEnvSustain;
+                data->filterEnvStage = kEnvStage_Sustain;
+            }
+            break;
+
+        case kEnvStage_Sustain:
+            data->filterEnvLevel = data->filterEnvSustain;
+            break;
+
+        case kEnvStage_Release:
+            if (data->filterEnvRelease > 0.0001f) {
+                float releaseRate = data->filterEnvReleaseStartLevel / (data->filterEnvRelease * data->sampleRate);
+                data->filterEnvLevel -= releaseRate;
+                if (data->filterEnvLevel <= 0.0f) {
+                    data->filterEnvLevel = 0.0f;
+                    data->filterEnvStage = kEnvStage_Idle;
+                }
+            } else {
+                data->filterEnvLevel = 0.0f;
+                data->filterEnvStage = kEnvStage_Idle;
+            }
+            break;
+    }
+}
+
 static OSStatus ClaudeSynth_Render(void *self,
                                     AudioUnitRenderActionFlags *ioActionFlags,
                                     const AudioTimeStamp *inTimeStamp,
@@ -962,6 +1064,10 @@ static OSStatus ClaudeSynth_Render(void *self,
                 break;
         }
 
+        // Update global filter envelope (applies to all voices)
+        UpdateGlobalFilterEnvelope(data);
+        float filterEnvValue = data->filterEnvLevel;
+
         // Process modulation matrix
         SynthVoice::ModulationValues modValues = {0};
 
@@ -976,6 +1082,9 @@ static OSStatus ClaudeSynth_Render(void *self,
                     break;
                 case kModSource_LFO2:
                     sourceValue = lfo2Value;
+                    break;
+                case kModSource_FilterEnv:
+                    sourceValue = filterEnvValue;
                     break;
                 default:
                     sourceValue = 0.0f;
@@ -1080,6 +1189,14 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                     voice->SetFilterResonance(data->filterResonance);
                     voice->SetEnvelope(data->envAttack, data->envDecay,
                                       data->envSustain, data->envRelease);
+
+                    // Increment active note count and trigger global filter envelope if idle
+                    data->activeNoteCount++;
+                    if (data->filterEnvStage == kEnvStage_Idle || data->filterEnvStage == kEnvStage_Release) {
+                        data->filterEnvLevel = 0.0f;  // Reset to 0 for clean attack
+                        data->filterEnvStage = kEnvStage_Attack;
+                    }
+
                     ClaudeLog("  -> Voice configured for note %d", noteNumber);
                 } else {
                     ClaudeLog("  -> ERROR: FindFreeVoice returned NULL!");
@@ -1088,6 +1205,15 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                 if (voice) {
                     voice->NoteOff();
+
+                    // Decrement active note count and trigger global filter envelope release if last note
+                    data->activeNoteCount--;
+                    if (data->activeNoteCount <= 0) {
+                        data->activeNoteCount = 0;
+                        data->filterEnvStage = kEnvStage_Release;
+                        data->filterEnvReleaseStartLevel = data->filterEnvLevel;
+                    }
+
                     ClaudeLog("  -> Note off (vel=0) for note %d", noteNumber);
                 } else {
                     ClaudeLog("  -> Note off (vel=0) for note %d - voice not found!", noteNumber);
@@ -1100,6 +1226,15 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                 if (voice) {
                     voice->NoteOff();
+
+                    // Decrement active note count and trigger global filter envelope release if last note
+                    data->activeNoteCount--;
+                    if (data->activeNoteCount <= 0) {
+                        data->activeNoteCount = 0;
+                        data->filterEnvStage = kEnvStage_Release;
+                        data->filterEnvReleaseStartLevel = data->filterEnvLevel;
+                    }
+
                     ClaudeLog("  -> Note off for note %d", noteNumber);
                 } else {
                     ClaudeLog("  -> Note off for note %d - voice not found!", noteNumber);
@@ -1142,6 +1277,7 @@ static void UpdateAllVoices(ClaudeSynthData *data) {
         data->voices[i].SetFilterResonance(data->filterResonance);
         data->voices[i].SetEnvelope(data->envAttack, data->envDecay,
                                     data->envSustain, data->envRelease);
+        // Filter envelope is now global, not per-voice
     }
 }
 
@@ -1245,6 +1381,27 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
 
         case kParam_EnvRelease:
             data->envRelease = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        // Filter Envelope
+        case kParam_FilterEnvAttack:
+            data->filterEnvAttack = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_FilterEnvDecay:
+            data->filterEnvDecay = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_FilterEnvSustain:
+            data->filterEnvSustain = inValue;
+            UpdateAllVoices(data);
+            return noErr;
+
+        case kParam_FilterEnvRelease:
+            data->filterEnvRelease = inValue;
             UpdateAllVoices(data);
             return noErr;
 
@@ -1406,6 +1563,23 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
 
         case kParam_EnvRelease:
             *outValue = data->envRelease;
+            return noErr;
+
+        // Filter Envelope
+        case kParam_FilterEnvAttack:
+            *outValue = data->filterEnvAttack;
+            return noErr;
+
+        case kParam_FilterEnvDecay:
+            *outValue = data->filterEnvDecay;
+            return noErr;
+
+        case kParam_FilterEnvSustain:
+            *outValue = data->filterEnvSustain;
+            return noErr;
+
+        case kParam_FilterEnvRelease:
+            *outValue = data->filterEnvRelease;
             return noErr;
 
         // LFO 1

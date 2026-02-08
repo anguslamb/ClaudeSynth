@@ -79,6 +79,21 @@
     NSTextField *releaseLabel;
     NSTextField *releaseDisplay;
 
+    // Filter Envelope
+    NSTextField *filterEnvelopeLabel;
+    NSSlider *filterAttackSlider;
+    NSTextField *filterAttackLabel;
+    NSTextField *filterAttackDisplay;
+    NSSlider *filterDecaySlider;
+    NSTextField *filterDecayLabel;
+    NSTextField *filterDecayDisplay;
+    NSSlider *filterSustainSlider;
+    NSTextField *filterSustainLabel;
+    NSTextField *filterSustainDisplay;
+    NSSlider *filterReleaseSlider;
+    NSTextField *filterReleaseLabel;
+    NSTextField *filterReleaseDisplay;
+
     // LFO 1
     NSSlider *lfoWaveformKnob;
     RotaryKnob *lfoRateKnob;
@@ -113,6 +128,10 @@
 - (void)decayChanged:(id)sender;
 - (void)sustainChanged:(id)sender;
 - (void)releaseChanged:(id)sender;
+- (void)filterAttackChanged:(id)sender;
+- (void)filterDecayChanged:(id)sender;
+- (void)filterSustainChanged:(id)sender;
+- (void)filterReleaseChanged:(id)sender;
 - (void)lfo1WaveformChanged:(id)sender;
 - (void)lfo1RateChanged:(id)sender;
 - (void)lfo2WaveformChanged:(id)sender;

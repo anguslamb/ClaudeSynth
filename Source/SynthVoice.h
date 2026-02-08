@@ -32,7 +32,9 @@ public:
                    mFilterCutoff(20000.0f), mFilterResonance(0.5f),
                    mLowpass(0.0f), mBandpass(0.0f),
                    mEnvelopeLevel(0.0f), mEnvStage(kEnvStage_Idle), mReleaseStartLevel(0.0f),
-                   mEnvAttack(0.01f), mEnvDecay(0.1f), mEnvSustain(0.7f), mEnvRelease(0.3f) {
+                   mEnvAttack(0.01f), mEnvDecay(0.1f), mEnvSustain(0.7f), mEnvRelease(0.3f),
+                   mFilterEnvelopeLevel(0.0f), mFilterEnvStage(kEnvStage_Idle), mFilterReleaseStartLevel(0.0f),
+                   mFilterEnvAttack(0.01f), mFilterEnvDecay(0.1f), mFilterEnvSustain(0.7f), mFilterEnvRelease(0.3f) {
         // Initialize oscillator 1
         mOsc1.waveform = kWaveform_Sine;
         mOsc1.octave = 0;
@@ -57,35 +59,49 @@ public:
 
     void NoteOn(int note, int velocity, double sampleRate) {
         bool wasIdle = (mEnvStage == kEnvStage_Idle);
+        bool noteChanged = (note != mNote);
 
         mNote = note;
         mVelocity = velocity;
         mSampleRate = sampleRate;
         mActive = true;
 
-        // Only reset phases and filter state if voice was completely idle
-        // This prevents clicks when retriggering active/releasing voices
-        if (wasIdle) {
+        // Reset phases and filter state if voice was idle OR if note changed
+        // This prevents clicks when retriggering the same note, but ensures
+        // clean filter response when switching to a different note
+        if (wasIdle || noteChanged) {
             mOsc1.phase = 0.0;
             mOsc2.phase = 0.0;
             mOsc3.phase = 0.0;
             mLowpass = 0.0f;
             mBandpass = 0.0f;
+        }
+
+        // Reset amplitude envelope level only if voice was idle
+        // This prevents clicks when retriggering
+        if (wasIdle) {
             mEnvelopeLevel = 0.0f;
         }
-        // Otherwise keep oscillator phases, filter state, and envelope level
+        // Otherwise keep amplitude envelope level for smooth retriggering
 
-        // Start envelope at attack stage
+        // Always reset filter envelope level for immediate retriggering
+        // (filter envelope modulation doesn't cause clicks like amplitude does)
+        mFilterEnvelopeLevel = 0.0f;
+
+        // Start both envelopes at attack stage
         mEnvStage = kEnvStage_Attack;
+        mFilterEnvStage = kEnvStage_Attack;
 
         // Convert MIDI note to frequency: 440 * 2^((note-69)/12)
         mBaseFrequency = 440.0 * pow(2.0, (note - 69) / 12.0);
     }
 
     void NoteOff() {
-        // Enter release stage and store current level for linear release
+        // Enter release stage and store current level for linear release (both envelopes)
         mEnvStage = kEnvStage_Release;
         mReleaseStartLevel = mEnvelopeLevel;
+        mFilterEnvStage = kEnvStage_Release;
+        mFilterReleaseStartLevel = mFilterEnvelopeLevel;
     }
 
     void Kill() {
@@ -134,6 +150,15 @@ public:
         mEnvSustain = sustain;
         mEnvRelease = release;
     }
+
+    void SetFilterEnvelope(float attack, float decay, float sustain, float release) {
+        mFilterEnvAttack = attack;
+        mFilterEnvDecay = decay;
+        mFilterEnvSustain = sustain;
+        mFilterEnvRelease = release;
+    }
+
+    float GetFilterEnvelopeLevel() const { return mFilterEnvelopeLevel; }
 
     struct ModulationValues {
         float filterCutoffMod;
@@ -205,6 +230,7 @@ public:
 
         // Apply ADSR envelope (after filter, before master volume)
         UpdateEnvelope();
+        UpdateFilterEnvelope();
         sample *= mEnvelopeLevel;
 
         // Apply master volume modulation
@@ -282,6 +308,60 @@ private:
         }
     }
 
+    void UpdateFilterEnvelope() {
+        switch (mFilterEnvStage) {
+            case kEnvStage_Idle:
+                mFilterEnvelopeLevel = 0.0f;
+                break;
+
+            case kEnvStage_Attack:
+                if (mFilterEnvAttack > 0.0001f) {
+                    float attackRate = 1.0f / (mFilterEnvAttack * mSampleRate);
+                    mFilterEnvelopeLevel += attackRate;
+                    if (mFilterEnvelopeLevel >= 1.0f) {
+                        mFilterEnvelopeLevel = 1.0f;
+                        mFilterEnvStage = kEnvStage_Decay;
+                    }
+                } else {
+                    mFilterEnvelopeLevel = 1.0f;
+                    mFilterEnvStage = kEnvStage_Decay;
+                }
+                break;
+
+            case kEnvStage_Decay:
+                if (mFilterEnvDecay > 0.0001f) {
+                    float decayRate = (1.0f - mFilterEnvSustain) / (mFilterEnvDecay * mSampleRate);
+                    mFilterEnvelopeLevel -= decayRate;
+                    if (mFilterEnvelopeLevel <= mFilterEnvSustain) {
+                        mFilterEnvelopeLevel = mFilterEnvSustain;
+                        mFilterEnvStage = kEnvStage_Sustain;
+                    }
+                } else {
+                    mFilterEnvelopeLevel = mFilterEnvSustain;
+                    mFilterEnvStage = kEnvStage_Sustain;
+                }
+                break;
+
+            case kEnvStage_Sustain:
+                mFilterEnvelopeLevel = mFilterEnvSustain;
+                break;
+
+            case kEnvStage_Release:
+                if (mFilterEnvRelease > 0.0001f) {
+                    float releaseRate = mFilterReleaseStartLevel / (mFilterEnvRelease * mSampleRate);
+                    mFilterEnvelopeLevel -= releaseRate;
+                    if (mFilterEnvelopeLevel <= 0.0f) {
+                        mFilterEnvelopeLevel = 0.0f;
+                        mFilterEnvStage = kEnvStage_Idle;
+                    }
+                } else {
+                    mFilterEnvelopeLevel = 0.0f;
+                    mFilterEnvStage = kEnvStage_Idle;
+                }
+                break;
+        }
+    }
+
     float GenerateOscillatorSample(const OscillatorState& osc) {
         float normalizedPhase = osc.phase / (2.0 * M_PI); // 0.0 to 1.0
         float sample = 0.0f;
@@ -349,6 +429,15 @@ private:
     float mEnvDecay;
     float mEnvSustain;
     float mEnvRelease;
+
+    // Filter Envelope
+    float mFilterEnvelopeLevel;
+    EnvelopeStage mFilterEnvStage;
+    float mFilterReleaseStartLevel;
+    float mFilterEnvAttack;
+    float mFilterEnvDecay;
+    float mFilterEnvSustain;
+    float mFilterEnvRelease;
 };
 
 #endif

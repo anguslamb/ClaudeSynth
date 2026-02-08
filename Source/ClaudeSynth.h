@@ -11,7 +11,8 @@ static const int kNumModSlots = 4;
 enum ModSource {
     kModSource_None = 0,
     kModSource_LFO1 = 1,
-    kModSource_LFO2 = 2
+    kModSource_LFO2 = 2,
+    kModSource_FilterEnv = 3
 };
 
 // Modulation Matrix Destinations
@@ -55,30 +56,36 @@ enum {
     kParam_EnvSustain = 17,
     kParam_EnvRelease = 18,
 
+    // Filter Envelope
+    kParam_FilterEnvAttack = 19,
+    kParam_FilterEnvDecay = 20,
+    kParam_FilterEnvSustain = 21,
+    kParam_FilterEnvRelease = 22,
+
     // LFO 1
-    kParam_LFO1_Waveform = 19,
-    kParam_LFO1_Rate = 20,
+    kParam_LFO1_Waveform = 23,
+    kParam_LFO1_Rate = 24,
 
     // LFO 2
-    kParam_LFO2_Waveform = 21,
-    kParam_LFO2_Rate = 22,
+    kParam_LFO2_Waveform = 25,
+    kParam_LFO2_Rate = 26,
 
     // Modulation Matrix (4 slots x 3 params each)
-    kParam_ModSlot1_Source = 23,
-    kParam_ModSlot1_Dest = 24,
-    kParam_ModSlot1_Intensity = 25,
+    kParam_ModSlot1_Source = 27,
+    kParam_ModSlot1_Dest = 28,
+    kParam_ModSlot1_Intensity = 29,
 
-    kParam_ModSlot2_Source = 26,
-    kParam_ModSlot2_Dest = 27,
-    kParam_ModSlot2_Intensity = 28,
+    kParam_ModSlot2_Source = 30,
+    kParam_ModSlot2_Dest = 31,
+    kParam_ModSlot2_Intensity = 32,
 
-    kParam_ModSlot3_Source = 29,
-    kParam_ModSlot3_Dest = 30,
-    kParam_ModSlot3_Intensity = 31,
+    kParam_ModSlot3_Source = 33,
+    kParam_ModSlot3_Dest = 34,
+    kParam_ModSlot3_Intensity = 35,
 
-    kParam_ModSlot4_Source = 32,
-    kParam_ModSlot4_Dest = 33,
-    kParam_ModSlot4_Intensity = 34
+    kParam_ModSlot4_Source = 36,
+    kParam_ModSlot4_Dest = 37,
+    kParam_ModSlot4_Intensity = 38
 };
 
 struct OscillatorSettings {
@@ -105,6 +112,16 @@ struct ClaudeSynthData {
     float envDecay;
     float envSustain;
     float envRelease;
+
+    // Filter Envelope (Global)
+    float filterEnvAttack;
+    float filterEnvDecay;
+    float filterEnvSustain;
+    float filterEnvRelease;
+    float filterEnvLevel;
+    EnvelopeStage filterEnvStage;
+    float filterEnvReleaseStartLevel;
+    int activeNoteCount;  // Track how many notes are currently held
 
     // LFO 1
     int lfo1Waveform;
