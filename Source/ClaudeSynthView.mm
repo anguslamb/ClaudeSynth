@@ -95,6 +95,64 @@
         [titleLabel setTextColor:[NSColor whiteColor]];
         [self addSubview:titleLabel];
 
+        // ===== VISUAL DIVIDERS =====
+        NSColor *dividerColor = [NSColor colorWithWhite:0.25 alpha:1.0];
+
+        // Horizontal divider separating top and bottom sections
+        NSBox *horizontalDivider = [[NSBox alloc] initWithFrame:NSMakeRect(0, 190, 1440, 1)];
+        [horizontalDivider setBoxType:NSBoxCustom];
+        [horizontalDivider setBorderType:NSLineBorder];
+        [horizontalDivider setBorderColor:dividerColor];
+        [horizontalDivider setFillColor:dividerColor];
+        [horizontalDivider setTitlePosition:NSNoTitle];
+        [self addSubview:horizontalDivider];
+
+        // Vertical dividers in top section
+        // After Oscillators (between Osc3 and LFO1)
+        NSBox *divider1 = [[NSBox alloc] initWithFrame:NSMakeRect(540, 200, 1, 280)];
+        [divider1 setBoxType:NSBoxCustom];
+        [divider1 setBorderType:NSLineBorder];
+        [divider1 setBorderColor:dividerColor];
+        [divider1 setFillColor:dividerColor];
+        [divider1 setTitlePosition:NSNoTitle];
+        [self addSubview:divider1];
+
+        // Between LFOs and Filter
+        NSBox *divider2 = [[NSBox alloc] initWithFrame:NSMakeRect(720, 200, 1, 280)];
+        [divider2 setBoxType:NSBoxCustom];
+        [divider2 setBorderType:NSLineBorder];
+        [divider2 setBorderColor:dividerColor];
+        [divider2 setFillColor:dividerColor];
+        [divider2 setTitlePosition:NSNoTitle];
+        [self addSubview:divider2];
+
+        // Between Filter and Envelopes
+        NSBox *divider3 = [[NSBox alloc] initWithFrame:NSMakeRect(900, 200, 1, 280)];
+        [divider3 setBoxType:NSBoxCustom];
+        [divider3 setBorderType:NSLineBorder];
+        [divider3 setBorderColor:dividerColor];
+        [divider3 setFillColor:dividerColor];
+        [divider3 setTitlePosition:NSNoTitle];
+        [self addSubview:divider3];
+
+        // Between Envelopes and Master
+        NSBox *divider4 = [[NSBox alloc] initWithFrame:NSMakeRect(1260, 200, 1, 280)];
+        [divider4 setBoxType:NSBoxCustom];
+        [divider4 setBorderType:NSLineBorder];
+        [divider4 setBorderColor:dividerColor];
+        [divider4 setFillColor:dividerColor];
+        [divider4 setTitlePosition:NSNoTitle];
+        [self addSubview:divider4];
+
+        // Vertical divider in bottom section (between Modulation Matrix and Effects)
+        NSBox *divider5 = [[NSBox alloc] initWithFrame:NSMakeRect(580, 10, 1, 170)];
+        [divider5 setBoxType:NSBoxCustom];
+        [divider5 setBorderType:NSLineBorder];
+        [divider5 setBorderColor:dividerColor];
+        [divider5 setFillColor:dividerColor];
+        [divider5 setTitlePosition:NSNoTitle];
+        [self addSubview:divider5];
+
         // Layout: 8 sections horizontally - Osc1, Osc2, Osc3, LFO1, LFO2, Filter, Envelope, Filter Env, Master
         // Each section is 180 pixels wide
         int sectionWidth = 180;
@@ -428,7 +486,7 @@
         int effectsY = 10;
 
         // Section label
-        NSTextField *effectsLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 50, effectsY + 160, 200, 20)];
+        NSTextField *effectsLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(effectsX + 50, effectsY + 152, 200, 20)];
         [effectsLabel setStringValue:@"Effects"];
         [effectsLabel setAlignment:NSTextAlignmentCenter];
         [effectsLabel setBezeled:NO];
@@ -900,7 +958,7 @@
 
 - (void)createModulationMatrixSection {
     // Section label
-    NSTextField *matrixLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 180, 1160, 20)];
+    NSTextField *matrixLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, 162, 1160, 20)];
     [matrixLabel setStringValue:@"Modulation Matrix"];
     [matrixLabel setAlignment:NSTextAlignmentLeft];
     [matrixLabel setBezeled:NO];
