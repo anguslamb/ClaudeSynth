@@ -3,6 +3,7 @@
 #import <AudioUnit/AUCocoaUIView.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import "RotaryKnob.h"
+#import "ADSREnvelopeView.h"
 
 @interface ClaudeSynthView : NSView
 {
@@ -66,32 +67,18 @@
 
     // Envelope
     NSTextField *envelopeLabel;
-    NSSlider *attackSlider;
-    NSTextField *attackLabel;
+    ADSREnvelopeView *envelopeView;
     NSTextField *attackDisplay;
-    NSSlider *decaySlider;
-    NSTextField *decayLabel;
     NSTextField *decayDisplay;
-    NSSlider *sustainSlider;
-    NSTextField *sustainLabel;
     NSTextField *sustainDisplay;
-    NSSlider *releaseSlider;
-    NSTextField *releaseLabel;
     NSTextField *releaseDisplay;
 
     // Filter Envelope
     NSTextField *filterEnvelopeLabel;
-    NSSlider *filterAttackSlider;
-    NSTextField *filterAttackLabel;
+    ADSREnvelopeView *filterEnvelopeView;
     NSTextField *filterAttackDisplay;
-    NSSlider *filterDecaySlider;
-    NSTextField *filterDecayLabel;
     NSTextField *filterDecayDisplay;
-    NSSlider *filterSustainSlider;
-    NSTextField *filterSustainLabel;
     NSTextField *filterSustainDisplay;
-    NSSlider *filterReleaseSlider;
-    NSTextField *filterReleaseLabel;
     NSTextField *filterReleaseDisplay;
 
     // LFO 1
@@ -124,14 +111,8 @@
 - (void)osc3VolumeChanged:(id)sender;
 - (void)cutoffChanged:(id)sender;
 - (void)resonanceChanged:(id)sender;
-- (void)attackChanged:(id)sender;
-- (void)decayChanged:(id)sender;
-- (void)sustainChanged:(id)sender;
-- (void)releaseChanged:(id)sender;
-- (void)filterAttackChanged:(id)sender;
-- (void)filterDecayChanged:(id)sender;
-- (void)filterSustainChanged:(id)sender;
-- (void)filterReleaseChanged:(id)sender;
+- (void)envelopeChanged:(id)sender;
+- (void)filterEnvelopeChanged:(id)sender;
 - (void)lfo1WaveformChanged:(id)sender;
 - (void)lfo1RateChanged:(id)sender;
 - (void)lfo2WaveformChanged:(id)sender;

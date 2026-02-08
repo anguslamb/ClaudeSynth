@@ -545,7 +545,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_EnvAttack:
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
-                        info->maxValue = 5.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.01f;
                         info->cfNameString = CFSTR("Env Attack");
                         break;
@@ -553,7 +553,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_EnvDecay:
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
-                        info->maxValue = 5.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.1f;
                         info->cfNameString = CFSTR("Env Decay");
                         break;
@@ -569,7 +569,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_EnvRelease:
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
-                        info->maxValue = 5.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.3f;
                         info->cfNameString = CFSTR("Env Release");
                         break;
@@ -578,7 +578,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_FilterEnvAttack:
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
-                        info->maxValue = 5.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.01f;
                         info->cfNameString = CFSTR("Filter Env Attack");
                         break;
@@ -586,7 +586,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_FilterEnvDecay:
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
-                        info->maxValue = 5.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.1f;
                         info->cfNameString = CFSTR("Filter Env Decay");
                         break;
@@ -602,7 +602,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_FilterEnvRelease:
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
-                        info->maxValue = 5.0f;
+                        info->maxValue = 3.0f;
                         info->defaultValue = 0.3f;
                         info->cfNameString = CFSTR("Filter Env Release");
                         break;

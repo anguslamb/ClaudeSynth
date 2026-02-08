@@ -29,7 +29,8 @@ FRAMEWORKS = -framework AudioUnit \
 SOURCES = Source/ClaudeSynth.cpp \
           Source/ClaudeSynthView.mm \
           Source/RotaryKnob.mm \
-          Source/DiscreteKnob.mm
+          Source/DiscreteKnob.mm \
+          Source/ADSREnvelopeView.mm
 
 # Bundle structure
 BUNDLE_DIR = build/$(PLUGIN_NAME).component
