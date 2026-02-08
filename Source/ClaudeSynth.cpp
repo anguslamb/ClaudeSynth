@@ -108,13 +108,13 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
 
     // ADSR envelope defaults
     data->envAttack = 0.01f;   // 10ms attack
-    data->envDecay = 0.1f;     // 100ms decay
+    data->envDecay = 0.3f;     // 300ms decay (increased for better UI clarity)
     data->envSustain = 0.7f;   // 70% sustain level
     data->envRelease = 0.3f;   // 300ms release
 
     // Filter envelope defaults (Global)
     data->filterEnvAttack = 0.01f;
-    data->filterEnvDecay = 0.1f;
+    data->filterEnvDecay = 0.3f;   // 300ms decay (increased for better UI clarity)
     data->filterEnvSustain = 1.0f;  // Full sustain by default
     data->filterEnvRelease = 0.3f;
     data->filterEnvLevel = 0.0f;
@@ -577,7 +577,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
                         info->maxValue = 3.0f;
-                        info->defaultValue = 0.1f;
+                        info->defaultValue = 0.3f;
                         info->cfNameString = CFSTR("Env Decay");
                         break;
 
@@ -610,7 +610,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->unit = kAudioUnitParameterUnit_Seconds;
                         info->minValue = 0.001f;
                         info->maxValue = 3.0f;
-                        info->defaultValue = 0.1f;
+                        info->defaultValue = 0.3f;
                         info->cfNameString = CFSTR("Filter Env Decay");
                         break;
 

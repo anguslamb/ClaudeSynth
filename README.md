@@ -254,7 +254,7 @@ Amplitude envelope applied to each voice:
 | Sustain | 0-100% | Level held while note is pressed |
 | Release | 1ms - 5s | Time to fade to silence after note off |
 
-**Default**: 10ms attack, 100ms decay, 70% sustain, 300ms release
+**Default**: 10ms attack, 300ms decay, 70% sustain, 300ms release
 
 ### Master
 | Parameter | Range | Description |
@@ -273,7 +273,7 @@ Global filter envelope for modulation routing:
 | Sustain | 0-100% | Level held while note is pressed |
 | Release | 1ms - 5s | Time to fade after note off |
 
-**Default**: 10ms attack, 100ms decay, 100% sustain, 300ms release
+**Default**: 10ms attack, 300ms decay, 100% sustain, 300ms release
 
 ### LFOs (x2)
 Two independent low-frequency oscillators for modulation:
