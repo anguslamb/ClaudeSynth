@@ -970,7 +970,7 @@
     [self addSubview:matrixLabel];
 
     // Column headers
-    NSTextField *sourceHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(80, 155, 150, 16)];
+    NSTextField *sourceHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(80, 142, 150, 16)];
     [sourceHeader setStringValue:@"Source"];
     [sourceHeader setAlignment:NSTextAlignmentCenter];
     [sourceHeader setBezeled:NO];
@@ -981,7 +981,7 @@
     [sourceHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:sourceHeader];
 
-    NSTextField *destHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(240, 155, 200, 16)];
+    NSTextField *destHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(240, 142, 200, 16)];
     [destHeader setStringValue:@"Destination"];
     [destHeader setAlignment:NSTextAlignmentCenter];
     [destHeader setBezeled:NO];
@@ -992,7 +992,7 @@
     [destHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
     [self addSubview:destHeader];
 
-    NSTextField *intensityHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(450, 155, 100, 16)];
+    NSTextField *intensityHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(450, 142, 100, 16)];
     [intensityHeader setStringValue:@"Intensity"];
     [intensityHeader setAlignment:NSTextAlignmentCenter];
     [intensityHeader setBezeled:NO];
@@ -1005,7 +1005,7 @@
 
     // Create 4 modulation slots with tighter spacing
     for (int slot = 0; slot < 4; slot++) {
-        int yPos = 130 - (slot * 30);
+        int yPos = 117 - (slot * 30);
 
         // Slot number label
         NSTextField *slotLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(50, yPos + 10, 20, 16)];
