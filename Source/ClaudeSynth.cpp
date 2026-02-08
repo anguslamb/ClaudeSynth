@@ -181,7 +181,18 @@ static OSStatus ClaudeSynth_Close(void *self) {
 }
 
 static AudioComponentMethod ClaudeSynth_Lookup(SInt16 selector) {
-    ClaudeLog("Lookup: selector=%d (0x%X)", selector, selector);
+    // Log all lookups to help debug arpeggiator issues
+    const char *selectorName = "UNKNOWN";
+    switch (selector) {
+        case kAudioUnitInitializeSelect: selectorName = "Initialize"; break;
+        case kMusicDeviceMIDIEventSelect: selectorName = "MIDIEvent"; break;
+        case kMusicDeviceStartNoteSelect: selectorName = "StartNote"; break;
+        case kMusicDeviceStopNoteSelect: selectorName = "StopNote"; break;
+        case kAudioUnitRenderSelect: selectorName = "Render"; break;
+        default: break;
+    }
+    ClaudeLog("Lookup: selector=%d (0x%X) [%s]", selector, selector, selectorName);
+
     switch (selector) {
         case kAudioUnitInitializeSelect:
             return (AudioComponentMethod)ClaudeSynth_Initialize;
@@ -1960,17 +1971,25 @@ static OSStatus ClaudeSynth_StopNote(void *self, MusicDeviceGroupID inGroupID,
 
     ClaudeLog("StopNote: instanceID=%d, offset=%d", (int)inNoteInstanceID, inOffsetSampleFrame);
 
-    // Convert instance ID back to voice index
+    // Convert instance ID back to voice index and verify the voice is still active
     if (inNoteInstanceID > 0 && inNoteInstanceID <= kNumVoices) {
         int voiceIndex = inNoteInstanceID - 1;
-        data->voices[voiceIndex].NoteOff();
 
-        // Decrement active note count and trigger global filter envelope release if last note
-        data->activeNoteCount--;
-        if (data->activeNoteCount <= 0) {
-            data->activeNoteCount = 0;
-            data->filterEnvStage = kEnvStage_Release;
-            data->filterEnvReleaseStartLevel = data->filterEnvLevel;
+        // Only stop the voice if it's actually active (prevents stopping wrong voice if stolen)
+        if (data->voices[voiceIndex].IsActive()) {
+            data->voices[voiceIndex].NoteOff();
+
+            // Decrement active note count and trigger global filter envelope release if last note
+            data->activeNoteCount--;
+            if (data->activeNoteCount <= 0) {
+                data->activeNoteCount = 0;
+                data->filterEnvStage = kEnvStage_Release;
+                data->filterEnvReleaseStartLevel = data->filterEnvLevel;
+            }
+
+            ClaudeLog("  -> Stopped voice %d", voiceIndex);
+        } else {
+            ClaudeLog("  -> Voice %d not active (already released or stolen)", voiceIndex);
         }
     }
 
