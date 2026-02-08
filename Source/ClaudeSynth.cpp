@@ -1889,7 +1889,20 @@ static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInst
     ClaudeLog("StartNote: note=%d, vel=%d, offset=%d", noteNumber, velocity, inOffsetSampleFrame);
 
     if (velocity > 0) {
-        SynthVoice *voice = FindFreeVoice(data);
+        // Check if this note is already playing
+        SynthVoice *existingVoice = FindVoiceForNote(data, noteNumber);
+        SynthVoice *voice = nullptr;
+
+        if (existingVoice) {
+            // Retrigger the existing voice (restarts envelope from current level)
+            voice = existingVoice;
+            ClaudeLog("  -> Retriggering existing voice for note %d", noteNumber);
+        } else {
+            // Allocate a new voice
+            voice = FindFreeVoice(data);
+            ClaudeLog("  -> Allocated new voice for note %d", noteNumber);
+        }
+
         if (voice) {
             voice->NoteOn(noteNumber, velocity, data->sampleRate);
             voice->SetOscillator1(data->osc1.waveform, data->osc1.octave,
@@ -1919,6 +1932,22 @@ static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInst
                     }
                 }
             }
+        }
+    } else {
+        // velocity == 0 is treated as note off (some MIDI sources use this)
+        SynthVoice *voice = FindVoiceForNote(data, noteNumber);
+        if (voice) {
+            voice->NoteOff();
+
+            // Decrement active note count and trigger global filter envelope release if last note
+            data->activeNoteCount--;
+            if (data->activeNoteCount <= 0) {
+                data->activeNoteCount = 0;
+                data->filterEnvStage = kEnvStage_Release;
+                data->filterEnvReleaseStartLevel = data->filterEnvLevel;
+            }
+
+            ClaudeLog("  -> Note off (vel=0) for note %d", noteNumber);
         }
     }
 
