@@ -1074,7 +1074,7 @@
         [intensityDisplay setSelectable:NO];
         [intensityDisplay setFont:[NSFont systemFontOfSize:9]];
         [intensityDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
-        [intensityDisplay setTag:slot];  // Tag for finding it later
+        [intensityDisplay setTag:1000 + slot];  // Use unique tag base to avoid conflicts
         [self addSubview:intensityDisplay];
     }
 }
@@ -1385,15 +1385,12 @@
         AudioUnitSetParameter(mAU, paramID, kAudioUnitScope_Global, 0, value, 0);
     }
 
-    // Update the corresponding display
+    // Update the corresponding display (using unique tag 1000 + slot)
     for (NSView *subview in [self subviews]) {
-        if ([subview isKindOfClass:[NSTextField class]] && [subview tag] == slot) {
+        if ([subview isKindOfClass:[NSTextField class]] && [subview tag] == (1000 + slot)) {
             NSTextField *display = (NSTextField *)subview;
-            // Check if this is an intensity display (not a slot label)
-            if ([[display stringValue] containsString:@"%"]) {
-                [display setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
-                break;
-            }
+            [display setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
+            break;
         }
     }
 }
