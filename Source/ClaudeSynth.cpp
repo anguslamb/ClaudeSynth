@@ -159,6 +159,22 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
     memset(data->flangerDelayBuffer, 0, sizeof(data->flangerDelayBuffer));
     data->flangerFeedbackSample = 0.0f;
 
+    // Initialize arpeggiator parameters
+    data->arpEnable = 0;           // Off by default
+    data->arpRate = 1;             // 1/8 note
+    data->arpMode = 0;             // Up
+    data->arpOctaves = 1;          // 1 octave
+    data->arpGate = 0.9f;          // 90% gate
+
+    // Initialize arpeggiator state
+    data->heldNotesCount = 0;
+    memset(data->heldNotes, -1, sizeof(data->heldNotes));
+    data->arpCurrentStep = 0;
+    data->arpPhaseAccumulator = 0.0;
+    data->hostTempo = 120.0;       // Default tempo
+    data->currentArpNote = -1;
+    data->arpNoteActive = false;
+
     ClaudeLog("Factory: initialized parameters");
 
     return &data->pluginInterface;
@@ -240,6 +256,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
                                              AudioUnitElement inElement,
                                              UInt32 *outDataSize,
                                              UInt32 *outWritable) {
+    ClaudeLog("GetPropertyInfo: id=0x%X, scope=%d, element=%d", inID, inScope, inElement);
     switch (inID) {
         case kAudioUnitProperty_StreamFormat:
             if (outDataSize) *outDataSize = sizeof(AudioStreamBasicDescription);
@@ -262,7 +279,7 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 42;
+            if (outDataSize) *outDataSize = sizeof(AudioUnitParameterID) * 47;
             if (outWritable) *outWritable = 0;
             return noErr;
 
@@ -311,6 +328,15 @@ static OSStatus ClaudeSynth_GetPropertyInfo(void *self,
             if (outDataSize) *outDataSize = sizeof(UInt32);
             if (outWritable) *outWritable = 0;
             return noErr;
+
+        case kAudioUnitProperty_AudioChannelLayout:
+            // Return stereo layout for output scope
+            if (inScope == kAudioUnitScope_Output) {
+                if (outDataSize) *outDataSize = offsetof(AudioChannelLayout, mChannelDescriptions);
+                if (outWritable) *outWritable = 0;
+                return noErr;
+            }
+            return kAudioUnitErr_InvalidProperty;
 
         default:
             ClaudeLog("GetPropertyInfo: UNKNOWN property 0x%X returning InvalidProperty", (unsigned int)inID);
@@ -393,7 +419,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             return noErr;
 
         case kAudioUnitProperty_ParameterList:
-            if (*ioDataSize < sizeof(AudioUnitParameterID) * 42)
+            if (*ioDataSize < sizeof(AudioUnitParameterID) * 47)
                 return kAudioUnitErr_InvalidParameter;
             {
                 AudioUnitParameterID *paramList = (AudioUnitParameterID *)outData;
@@ -439,7 +465,12 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                 paramList[39] = kParam_EffectType;
                 paramList[40] = kParam_EffectRate;
                 paramList[41] = kParam_EffectIntensity;
-                *ioDataSize = sizeof(AudioUnitParameterID) * 42;
+                paramList[42] = kParam_ArpEnable;
+                paramList[43] = kParam_ArpRate;
+                paramList[44] = kParam_ArpMode;
+                paramList[45] = kParam_ArpOctaves;
+                paramList[46] = kParam_ArpGate;
+                *ioDataSize = sizeof(AudioUnitParameterID) * 47;
             }
             return noErr;
 
@@ -797,6 +828,46 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->cfNameString = CFSTR("Effect Intensity");
                         break;
 
+                    case kParam_ArpEnable:
+                        info->unit = kAudioUnitParameterUnit_Boolean;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Arpeggiator Enable");
+                        break;
+
+                    case kParam_ArpRate:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 3.0f;
+                        info->defaultValue = 1.0f;
+                        info->cfNameString = CFSTR("Arpeggiator Rate");
+                        break;
+
+                    case kParam_ArpMode:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 3.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Arpeggiator Mode");
+                        break;
+
+                    case kParam_ArpOctaves:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = 1.0f;
+                        info->maxValue = 4.0f;
+                        info->defaultValue = 1.0f;
+                        info->cfNameString = CFSTR("Arpeggiator Octaves");
+                        break;
+
+                    case kParam_ArpGate:
+                        info->unit = kAudioUnitParameterUnit_Percent;
+                        info->minValue = 0.1f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.9f;
+                        info->cfNameString = CFSTR("Arpeggiator Gate");
+                        break;
+
                     default:
                         return kAudioUnitErr_InvalidParameter;
                 }
@@ -852,8 +923,21 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
             *ioDataSize = sizeof(UInt32);
             return noErr;
 
+        case kAudioUnitProperty_AudioChannelLayout:
+            // Return stereo layout for output scope
+            if (inScope == kAudioUnitScope_Output) {
+                if (*ioDataSize < offsetof(AudioChannelLayout, mChannelDescriptions))
+                    return kAudioUnitErr_InvalidParameter;
+                AudioChannelLayout *layout = (AudioChannelLayout *)outData;
+                layout->mChannelLayoutTag = kAudioChannelLayoutTag_Stereo;
+                layout->mChannelBitmap = 0;
+                layout->mNumberChannelDescriptions = 0;
+                *ioDataSize = offsetof(AudioChannelLayout, mChannelDescriptions);
+                return noErr;
+            }
+            return kAudioUnitErr_InvalidProperty;
+
         case 0x3C: // kAudioUnitProperty_OfflineRender or similar
-        case 0x1E: // kAudioUnitProperty_AudioChannelLayout
         case 0x18A8B: // kAudioUnitProperty_SupportsMPE
             // Return not supported for these
             return kAudioUnitErr_InvalidProperty;
@@ -1139,6 +1223,88 @@ static void UpdateGlobalFilterEnvelope(ClaudeSynthData *data) {
     }
 }
 
+// Helper function to sort held notes (for arpeggiator)
+static void SortHeldNotes(int *notes, int count) {
+    // Simple bubble sort (fine for small arrays)
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (notes[j] > notes[j + 1]) {
+                int temp = notes[j];
+                notes[j] = notes[j + 1];
+                notes[j + 1] = temp;
+            }
+        }
+    }
+}
+
+// Generate arpeggio note at current step
+static int GetArpNote(ClaudeSynthData *data) {
+    if (data->heldNotesCount == 0) return -1;
+
+    // Sort held notes for consistent ordering
+    int sortedNotes[ClaudeSynthData::kMaxArpNotes];
+    for (int i = 0; i < data->heldNotesCount; i++) {
+        sortedNotes[i] = data->heldNotes[i];
+    }
+    SortHeldNotes(sortedNotes, data->heldNotesCount);
+
+    // Calculate total notes including octaves
+    int totalNotes = data->heldNotesCount * data->arpOctaves;
+    int step = data->arpCurrentStep % totalNotes;
+
+    int note = -1;
+    switch (data->arpMode) {
+        case 0: // Up
+            {
+                int octave = step / data->heldNotesCount;
+                int noteIndex = step % data->heldNotesCount;
+                note = sortedNotes[noteIndex] + (octave * 12);
+            }
+            break;
+
+        case 1: // Down
+            {
+                int reverseStep = totalNotes - 1 - step;
+                int octave = reverseStep / data->heldNotesCount;
+                int noteIndex = reverseStep % data->heldNotesCount;
+                note = sortedNotes[noteIndex] + (octave * 12);
+            }
+            break;
+
+        case 2: // Up/Down (non-repeating peaks)
+            {
+                int upDownLength = (totalNotes * 2) - 2;
+                if (upDownLength < 1) upDownLength = 1;
+                int pos = step % upDownLength;
+
+                if (pos < totalNotes) {
+                    // Going up
+                    int octave = pos / data->heldNotesCount;
+                    int noteIndex = pos % data->heldNotesCount;
+                    note = sortedNotes[noteIndex] + (octave * 12);
+                } else {
+                    // Going down
+                    int downPos = upDownLength - pos;
+                    int octave = downPos / data->heldNotesCount;
+                    int noteIndex = downPos % data->heldNotesCount;
+                    note = sortedNotes[noteIndex] + (octave * 12);
+                }
+            }
+            break;
+
+        case 3: // Random
+            {
+                int randomStep = rand() % totalNotes;
+                int octave = randomStep / data->heldNotesCount;
+                int noteIndex = randomStep % data->heldNotesCount;
+                note = sortedNotes[noteIndex] + (octave * 12);
+            }
+            break;
+    }
+
+    return note;
+}
+
 static OSStatus ClaudeSynth_Render(void *self,
                                     AudioUnitRenderActionFlags *ioActionFlags,
                                     const AudioTimeStamp *inTimeStamp,
@@ -1236,6 +1402,107 @@ static OSStatus ClaudeSynth_Render(void *self,
         // Update global filter envelope (applies to all voices)
         UpdateGlobalFilterEnvelope(data);
         float filterEnvValue = data->filterEnvLevel;
+
+        // Process arpeggiator
+        if (data->arpEnable && data->heldNotesCount > 0) {
+            // Get host tempo (default to 120 BPM if not available)
+            double tempo = 120.0;
+            if (inTimeStamp && (inTimeStamp->mFlags & kAudioTimeStampSMPTETimeValid)) {
+                // Try to get tempo from host - this varies by host
+                // For now, use default tempo (proper tempo sync would require additional host property queries)
+            }
+            data->hostTempo = tempo;
+
+            // Calculate samples per step based on tempo and rate
+            // Rate: 0=1/4, 1=1/8, 2=1/16, 3=1/32
+            double beatsPerSecond = tempo / 60.0;
+            double stepsPerBeat = 1.0;
+            switch (data->arpRate) {
+                case 0: stepsPerBeat = 1.0; break;  // Quarter notes
+                case 1: stepsPerBeat = 2.0; break;  // Eighth notes
+                case 2: stepsPerBeat = 4.0; break;  // Sixteenth notes
+                case 3: stepsPerBeat = 8.0; break;  // Thirty-second notes
+            }
+            double stepsPerSecond = beatsPerSecond * stepsPerBeat;
+            double samplesPerStep = data->sampleRate / stepsPerSecond;
+            double gateLength = samplesPerStep * data->arpGate;
+
+            // Advance phase accumulator
+            data->arpPhaseAccumulator += 1.0;
+
+            // Check if it's time for a new step
+            if (data->arpPhaseAccumulator >= samplesPerStep) {
+                data->arpPhaseAccumulator -= samplesPerStep;
+
+                // Stop previous arp note
+                if (data->arpNoteActive && data->currentArpNote >= 0) {
+                    SynthVoice *voice = FindVoiceForNote(data, data->currentArpNote);
+                    if (voice) {
+                        voice->NoteOff();
+                    }
+                    data->arpNoteActive = false;
+                }
+
+                // Get next note and start it
+                int nextNote = GetArpNote(data);
+                if (nextNote >= 0 && nextNote < 128) {
+                    SynthVoice *voice = FindFreeVoice(data);
+                    if (!voice) {
+                        // Steal oldest voice if none free
+                        voice = &data->voices[0];
+                    }
+
+                    if (voice) {
+                        voice->NoteOn(nextNote, 100, data->sampleRate);  // Use velocity 100
+                        voice->SetOscillator1(data->osc1.waveform, data->osc1.octave,
+                                             data->osc1.detune, data->osc1.volume);
+                        voice->SetOscillator2(data->osc2.waveform, data->osc2.octave,
+                                             data->osc2.detune, data->osc2.volume);
+                        voice->SetOscillator3(data->osc3.waveform, data->osc3.octave,
+                                             data->osc3.detune, data->osc3.volume);
+                        voice->SetFilterCutoff(data->filterCutoff);
+                        voice->SetFilterResonance(data->filterResonance);
+                        voice->SetEnvelope(data->envAttack, data->envDecay,
+                                          data->envSustain, data->envRelease);
+
+                        data->currentArpNote = nextNote;
+                        data->arpNoteActive = true;
+                    }
+                }
+
+                // Advance to next step
+                data->arpCurrentStep++;
+            }
+
+            // Handle gate (note off before next step)
+            if (data->arpNoteActive && data->arpPhaseAccumulator >= gateLength) {
+                if (data->currentArpNote >= 0) {
+                    SynthVoice *voice = FindVoiceForNote(data, data->currentArpNote);
+                    if (voice) {
+                        voice->NoteOff();
+                    }
+                }
+            }
+        } else if (data->arpEnable && data->heldNotesCount == 0) {
+            // Stop current arp note when all notes are released
+            if (data->arpNoteActive && data->currentArpNote >= 0) {
+                SynthVoice *voice = FindVoiceForNote(data, data->currentArpNote);
+                if (voice) {
+                    voice->NoteOff();
+                }
+                data->arpNoteActive = false;
+            }
+            // Reset arpeggiator state
+            data->arpCurrentStep = 0;
+            data->arpPhaseAccumulator = 0.0;
+            data->currentArpNote = -1;
+        } else if (!data->arpEnable) {
+            // Reset arpeggiator state when disabled
+            data->arpCurrentStep = 0;
+            data->arpPhaseAccumulator = 0.0;
+            data->currentArpNote = -1;
+            data->arpNoteActive = false;
+        }
 
         // Process modulation matrix
         SynthVoice::ModulationValues modValues = {0};
@@ -1369,6 +1636,31 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
         case 0x90: // Note On
             ClaudeLog("  -> Case 0x90 matched, velocity=%d", velocity);
             if (velocity > 0) {
+                // If arpeggiator is enabled, add note to held notes list
+                if (data->arpEnable) {
+                    bool alreadyHeld = false;
+                    for (int i = 0; i < data->heldNotesCount; i++) {
+                        if (data->heldNotes[i] == noteNumber) {
+                            alreadyHeld = true;
+                            break;
+                        }
+                    }
+
+                    if (!alreadyHeld && data->heldNotesCount < ClaudeSynthData::kMaxArpNotes) {
+                        data->heldNotes[data->heldNotesCount] = noteNumber;
+                        data->heldNotesCount++;
+                        ClaudeLog("  -> Added note %d to arpeggiator (count=%d)", noteNumber, data->heldNotesCount);
+
+                        // Reset arpeggiator step when first note is pressed
+                        if (data->heldNotesCount == 1) {
+                            data->arpCurrentStep = 0;
+                            data->arpPhaseAccumulator = 0.0;
+                        }
+                    }
+                    break;  // Don't trigger voice directly
+                }
+
+                // Normal (non-arpeggiator) note handling
                 // Check if this note is already playing
                 SynthVoice *existingVoice = FindVoiceForNote(data, noteNumber);
                 SynthVoice *voice = nullptr;
@@ -1408,6 +1700,33 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                     ClaudeLog("  -> ERROR: FindFreeVoice returned NULL!");
                 }
             } else {
+                // If arpeggiator is enabled, remove note from held notes list
+                if (data->arpEnable) {
+                    for (int i = 0; i < data->heldNotesCount; i++) {
+                        if (data->heldNotes[i] == noteNumber) {
+                            // Remove note by shifting array
+                            for (int j = i; j < data->heldNotesCount - 1; j++) {
+                                data->heldNotes[j] = data->heldNotes[j + 1];
+                            }
+                            data->heldNotesCount--;
+                            ClaudeLog("  -> Removed note %d from arpeggiator (count=%d)", noteNumber, data->heldNotesCount);
+
+                            // If this was the currently playing arp note, stop it
+                            if (data->currentArpNote == noteNumber && data->arpNoteActive) {
+                                SynthVoice *voice = FindVoiceForNote(data, noteNumber);
+                                if (voice) {
+                                    voice->NoteOff();
+                                    ClaudeLog("  -> Stopped currently playing arp note %d", noteNumber);
+                                }
+                                data->arpNoteActive = false;
+                            }
+                            break;
+                        }
+                    }
+                    break;  // Don't handle voice directly
+                }
+
+                // Normal note off handling
                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                 if (voice) {
                     voice->NoteOff();
@@ -1429,6 +1748,33 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
 
         case 0x80: // Note Off
             {
+                // If arpeggiator is enabled, remove note from held notes list
+                if (data->arpEnable) {
+                    for (int i = 0; i < data->heldNotesCount; i++) {
+                        if (data->heldNotes[i] == noteNumber) {
+                            // Remove note by shifting array
+                            for (int j = i; j < data->heldNotesCount - 1; j++) {
+                                data->heldNotes[j] = data->heldNotes[j + 1];
+                            }
+                            data->heldNotesCount--;
+                            ClaudeLog("  -> Removed note %d from arpeggiator (count=%d)", noteNumber, data->heldNotesCount);
+
+                            // If this was the currently playing arp note, stop it
+                            if (data->currentArpNote == noteNumber && data->arpNoteActive) {
+                                SynthVoice *voice = FindVoiceForNote(data, noteNumber);
+                                if (voice) {
+                                    voice->NoteOff();
+                                    ClaudeLog("  -> Stopped currently playing arp note %d", noteNumber);
+                                }
+                                data->arpNoteActive = false;
+                            }
+                            break;
+                        }
+                    }
+                    break;  // Don't handle voice directly
+                }
+
+                // Normal note off handling
                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                 if (voice) {
                     voice->NoteOff();
@@ -1693,6 +2039,33 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
             data->effectIntensity = inValue;
             return noErr;
 
+        case kParam_ArpEnable:
+            data->arpEnable = (int)inValue;
+            // Reset arpeggiator state when enabling/disabling
+            if (!data->arpEnable) {
+                data->arpCurrentStep = 0;
+                data->arpPhaseAccumulator = 0.0;
+                data->currentArpNote = -1;
+                data->arpNoteActive = false;
+            }
+            return noErr;
+
+        case kParam_ArpRate:
+            data->arpRate = (int)inValue;
+            return noErr;
+
+        case kParam_ArpMode:
+            data->arpMode = (int)inValue;
+            return noErr;
+
+        case kParam_ArpOctaves:
+            data->arpOctaves = (int)inValue;
+            return noErr;
+
+        case kParam_ArpGate:
+            data->arpGate = inValue;
+            return noErr;
+
         default:
             return kAudioUnitErr_InvalidParameter;
     }
@@ -1882,6 +2255,26 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
             *outValue = data->effectIntensity;
             return noErr;
 
+        case kParam_ArpEnable:
+            *outValue = (float)data->arpEnable;
+            return noErr;
+
+        case kParam_ArpRate:
+            *outValue = (float)data->arpRate;
+            return noErr;
+
+        case kParam_ArpMode:
+            *outValue = (float)data->arpMode;
+            return noErr;
+
+        case kParam_ArpOctaves:
+            *outValue = (float)data->arpOctaves;
+            return noErr;
+
+        case kParam_ArpGate:
+            *outValue = data->arpGate;
+            return noErr;
+
         default:
             return kAudioUnitErr_InvalidParameter;
     }
@@ -1900,6 +2293,34 @@ static OSStatus ClaudeSynth_StartNote(void *self, MusicDeviceInstrumentID inInst
     ClaudeLog("StartNote: note=%d, vel=%d, offset=%d", noteNumber, velocity, inOffsetSampleFrame);
 
     if (velocity > 0) {
+        // If arpeggiator is enabled, add note to held notes list instead of playing directly
+        if (data->arpEnable) {
+            // Check if note is already in the list
+            bool alreadyHeld = false;
+            for (int i = 0; i < data->heldNotesCount; i++) {
+                if (data->heldNotes[i] == noteNumber) {
+                    alreadyHeld = true;
+                    break;
+                }
+            }
+
+            // Add note if not already held and we have space
+            if (!alreadyHeld && data->heldNotesCount < ClaudeSynthData::kMaxArpNotes) {
+                data->heldNotes[data->heldNotesCount] = noteNumber;
+                data->heldNotesCount++;
+                ClaudeLog("  -> Added note %d to arpeggiator (count=%d)", noteNumber, data->heldNotesCount);
+            }
+
+            // Reset arpeggiator step when first note is pressed
+            if (data->heldNotesCount == 1) {
+                data->arpCurrentStep = 0;
+                data->arpPhaseAccumulator = 0.0;
+            }
+
+            return noErr;  // Don't trigger voice directly when arpeggiator is on
+        }
+
+        // Normal (non-arpeggiator) note handling
         // Check if this note is already playing
         SynthVoice *existingVoice = FindVoiceForNote(data, noteNumber);
         SynthVoice *voice = nullptr;

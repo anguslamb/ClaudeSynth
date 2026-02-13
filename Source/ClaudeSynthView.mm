@@ -598,6 +598,149 @@
         [effectIntensityDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
         [self addSubview:effectIntensityDisplay];
 
+        // ===== ARPEGGIATOR SECTION =====
+        int arpX = 850;
+        int arpY = 10;
+
+        // Section label
+        NSTextField *arpLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(arpX + 70, arpY + 152, 200, 20)];
+        [arpLabel setStringValue:@"Arpeggiator"];
+        [arpLabel setAlignment:NSTextAlignmentCenter];
+        [arpLabel setBezeled:NO];
+        [arpLabel setDrawsBackground:NO];
+        [arpLabel setEditable:NO];
+        [arpLabel setSelectable:NO];
+        [arpLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
+        [arpLabel setTextColor:[NSColor whiteColor]];
+        [self addSubview:arpLabel];
+
+        // Enable button
+        arpEnableButton = [[NSButton alloc] initWithFrame:NSMakeRect(arpX + 130, arpY + 130, 80, 20)];
+        [arpEnableButton setButtonType:NSSwitchButton];
+        [arpEnableButton setTitle:@"Enable"];
+        AudioUnitParameterValue initialArpEnable = 0.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_ArpEnable, kAudioUnitScope_Global, 0, &initialArpEnable);
+        }
+        [arpEnableButton setState:(initialArpEnable > 0.5f) ? NSControlStateValueOn : NSControlStateValueOff];
+        [arpEnableButton setTarget:self];
+        [arpEnableButton setAction:@selector(arpEnableChanged:)];
+        [self addSubview:arpEnableButton];
+
+        // Rate popup
+        NSTextField *rateLabel2 = [[NSTextField alloc] initWithFrame:NSMakeRect(arpX + 10, arpY + 105, 80, 16)];
+        [rateLabel2 setStringValue:@"Rate"];
+        [rateLabel2 setAlignment:NSTextAlignmentCenter];
+        [rateLabel2 setBezeled:NO];
+        [rateLabel2 setDrawsBackground:NO];
+        [rateLabel2 setEditable:NO];
+        [rateLabel2 setSelectable:NO];
+        [rateLabel2 setFont:[NSFont systemFontOfSize:11]];
+        [rateLabel2 setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:rateLabel2];
+
+        arpRatePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(arpX + 10, arpY + 80, 80, 25)];
+        [arpRatePopup addItemWithTitle:@"1/4"];
+        [arpRatePopup addItemWithTitle:@"1/8"];
+        [arpRatePopup addItemWithTitle:@"1/16"];
+        [arpRatePopup addItemWithTitle:@"1/32"];
+        AudioUnitParameterValue initialArpRate = 1.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_ArpRate, kAudioUnitScope_Global, 0, &initialArpRate);
+        }
+        [arpRatePopup selectItemAtIndex:(int)initialArpRate];
+        [arpRatePopup setTarget:self];
+        [arpRatePopup setAction:@selector(arpRateChanged:)];
+        [self addSubview:arpRatePopup];
+
+        // Mode popup
+        NSTextField *modeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(arpX + 110, arpY + 105, 80, 16)];
+        [modeLabel setStringValue:@"Mode"];
+        [modeLabel setAlignment:NSTextAlignmentCenter];
+        [modeLabel setBezeled:NO];
+        [modeLabel setDrawsBackground:NO];
+        [modeLabel setEditable:NO];
+        [modeLabel setSelectable:NO];
+        [modeLabel setFont:[NSFont systemFontOfSize:11]];
+        [modeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:modeLabel];
+
+        arpModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(arpX + 110, arpY + 80, 90, 25)];
+        [arpModePopup addItemWithTitle:@"Up"];
+        [arpModePopup addItemWithTitle:@"Down"];
+        [arpModePopup addItemWithTitle:@"Up/Down"];
+        [arpModePopup addItemWithTitle:@"Random"];
+        AudioUnitParameterValue initialArpMode = 0.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_ArpMode, kAudioUnitScope_Global, 0, &initialArpMode);
+        }
+        [arpModePopup selectItemAtIndex:(int)initialArpMode];
+        [arpModePopup setTarget:self];
+        [arpModePopup setAction:@selector(arpModeChanged:)];
+        [self addSubview:arpModePopup];
+
+        // Octaves popup
+        NSTextField *octavesLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(arpX + 220, arpY + 105, 80, 16)];
+        [octavesLabel setStringValue:@"Octaves"];
+        [octavesLabel setAlignment:NSTextAlignmentCenter];
+        [octavesLabel setBezeled:NO];
+        [octavesLabel setDrawsBackground:NO];
+        [octavesLabel setEditable:NO];
+        [octavesLabel setSelectable:NO];
+        [octavesLabel setFont:[NSFont systemFontOfSize:11]];
+        [octavesLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:octavesLabel];
+
+        arpOctavesPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(arpX + 230, arpY + 80, 60, 25)];
+        [arpOctavesPopup addItemWithTitle:@"1"];
+        [arpOctavesPopup addItemWithTitle:@"2"];
+        [arpOctavesPopup addItemWithTitle:@"3"];
+        [arpOctavesPopup addItemWithTitle:@"4"];
+        AudioUnitParameterValue initialArpOctaves = 1.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_ArpOctaves, kAudioUnitScope_Global, 0, &initialArpOctaves);
+        }
+        [arpOctavesPopup selectItemAtIndex:(int)initialArpOctaves - 1];
+        [arpOctavesPopup setTarget:self];
+        [arpOctavesPopup setAction:@selector(arpOctavesChanged:)];
+        [self addSubview:arpOctavesPopup];
+
+        // Gate knob
+        NSTextField *gateLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(arpX + 130, arpY + 50, 80, 16)];
+        [gateLabel setStringValue:@"Gate"];
+        [gateLabel setAlignment:NSTextAlignmentCenter];
+        [gateLabel setBezeled:NO];
+        [gateLabel setDrawsBackground:NO];
+        [gateLabel setEditable:NO];
+        [gateLabel setSelectable:NO];
+        [gateLabel setFont:[NSFont systemFontOfSize:11]];
+        [gateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [self addSubview:gateLabel];
+
+        arpGateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(arpX + 145, arpY, 50, 50)];
+        [arpGateKnob setMinValue:0.1];
+        [arpGateKnob setMaxValue:1.0];
+        AudioUnitParameterValue initialArpGate = 0.9f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_ArpGate, kAudioUnitScope_Global, 0, &initialArpGate);
+        }
+        [arpGateKnob setDoubleValue:initialArpGate];
+        [arpGateKnob setTarget:self];
+        [arpGateKnob setAction:@selector(arpGateChanged:)];
+        [arpGateKnob setContinuous:YES];
+        [self addSubview:arpGateKnob];
+
+        arpGateDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(arpX + 130, arpY - 20, 80, 16)];
+        [arpGateDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialArpGate * 100.0]];
+        [arpGateDisplay setAlignment:NSTextAlignmentCenter];
+        [arpGateDisplay setBezeled:NO];
+        [arpGateDisplay setDrawsBackground:NO];
+        [arpGateDisplay setEditable:NO];
+        [arpGateDisplay setSelectable:NO];
+        [arpGateDisplay setFont:[NSFont systemFontOfSize:10]];
+        [arpGateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [self addSubview:arpGateDisplay];
+
         // Start timer to poll for host automation updates
         updateTimer = [NSTimer scheduledTimerWithTimeInterval:0.1
                                                        target:self
@@ -1401,6 +1544,42 @@
         AudioUnitSetParameter(mAU, kParam_EffectIntensity, kAudioUnitScope_Global, 0, value, 0);
     }
     [effectIntensityDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
+}
+
+- (void)arpEnableChanged:(id)sender {
+    float value = ([arpEnableButton state] == NSControlStateValueOn) ? 1.0f : 0.0f;
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_ArpEnable, kAudioUnitScope_Global, 0, value, 0);
+    }
+}
+
+- (void)arpRateChanged:(id)sender {
+    int value = (int)[arpRatePopup indexOfSelectedItem];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_ArpRate, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
+- (void)arpModeChanged:(id)sender {
+    int value = (int)[arpModePopup indexOfSelectedItem];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_ArpMode, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
+- (void)arpOctavesChanged:(id)sender {
+    int value = (int)[arpOctavesPopup indexOfSelectedItem] + 1;  // 1-4 octaves
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_ArpOctaves, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
+- (void)arpGateChanged:(id)sender {
+    float value = [arpGateKnob floatValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_ArpGate, kAudioUnitScope_Global, 0, value, 0);
+    }
+    [arpGateDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
 }
 
 - (void)updateFromHost:(NSTimer *)timer {

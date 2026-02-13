@@ -100,6 +100,14 @@
     NSTextField *effectRateDisplay;
     RotaryKnob *effectIntensityKnob;
     NSTextField *effectIntensityDisplay;
+
+    // Arpeggiator
+    NSButton *arpEnableButton;
+    NSPopUpButton *arpRatePopup;
+    NSPopUpButton *arpModePopup;
+    NSPopUpButton *arpOctavesPopup;
+    RotaryKnob *arpGateKnob;
+    NSTextField *arpGateDisplay;
 }
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au;
@@ -127,6 +135,11 @@
 - (void)modSourceChanged:(id)sender;
 - (void)modDestChanged:(id)sender;
 - (void)modIntensityChanged:(id)sender;
+- (void)arpEnableChanged:(id)sender;
+- (void)arpRateChanged:(id)sender;
+- (void)arpModeChanged:(id)sender;
+- (void)arpOctavesChanged:(id)sender;
+- (void)arpGateChanged:(id)sender;
 - (void)updateFromHost:(NSTimer *)timer;
 
 @end

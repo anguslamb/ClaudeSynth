@@ -90,7 +90,14 @@ enum {
     // Effects parameters
     kParam_EffectType = 39,      // 0=None, 1=Chorus, 2=Phaser, 3=Flanger
     kParam_EffectRate = 40,      // 0.1 to 10 Hz
-    kParam_EffectIntensity = 41  // 0.0 to 1.0
+    kParam_EffectIntensity = 41, // 0.0 to 1.0
+
+    // Arpeggiator parameters
+    kParam_ArpEnable = 42,       // 0=Off, 1=On
+    kParam_ArpRate = 43,         // 0=1/4, 1=1/8, 2=1/16, 3=1/32
+    kParam_ArpMode = 44,         // 0=Up, 1=Down, 2=UpDown, 3=Random
+    kParam_ArpOctaves = 45,      // 1-4 octaves
+    kParam_ArpGate = 46          // 0.0 to 1.0 (gate length)
 };
 
 struct OscillatorSettings {
@@ -165,6 +172,22 @@ struct ClaudeSynthData {
     float flangerDelayBuffer[kFlangerDelayBufferSize];
     int flangerWritePos;
     float flangerFeedbackSample;
+
+    // Arpeggiator state
+    int arpEnable;
+    int arpRate;         // 0=1/4, 1=1/8, 2=1/16, 3=1/32
+    int arpMode;         // 0=Up, 1=Down, 2=UpDown, 3=Random
+    int arpOctaves;      // 1-4
+    float arpGate;       // 0.0 to 1.0
+
+    static const int kMaxArpNotes = 16;
+    int heldNotes[kMaxArpNotes];  // MIDI note numbers currently held
+    int heldNotesCount;
+    int arpCurrentStep;
+    double arpPhaseAccumulator;
+    double hostTempo;    // BPM from host
+    int currentArpNote;  // Currently playing arp note (-1 if none)
+    bool arpNoteActive;  // Is an arp note currently playing
 };
 
 // Helper functions
