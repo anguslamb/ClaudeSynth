@@ -19,6 +19,9 @@
     NSTextField *masterVolumeLabel;
     NSTextField *masterVolumeDisplay;
 
+    // Saturation
+    NSTextField *saturationDisplay;
+
     // Oscillator 1
     NSTextField *osc1Label;
     MatrixSlider *osc1WaveformKnob;
@@ -126,6 +129,7 @@
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au;
 - (void)masterVolumeChanged:(id)sender;
+- (void)saturationChanged:(id)sender;
 - (void)osc1WaveformChanged:(id)sender;
 - (void)osc1OctaveChanged:(id)sender;
 - (void)osc1DetuneChanged:(id)sender;

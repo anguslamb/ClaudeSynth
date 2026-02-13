@@ -110,7 +110,10 @@ enum {
 
     // LFO Output (read-only for UI indicators)
     kParam_LFO1_Output = 51,     // 0.0 to 1.0 (current LFO value for LED)
-    kParam_LFO2_Output = 52      // 0.0 to 1.0 (current LFO value for LED)
+    kParam_LFO2_Output = 52,     // 0.0 to 1.0 (current LFO value for LED)
+
+    // Saturation
+    kParam_Saturation = 53       // 0.0 to 1.0 (saturation amount)
 };
 
 struct OscillatorSettings {
@@ -128,6 +131,7 @@ struct ClaudeSynthData {
     AudioStreamBasicDescription streamFormat;
     UInt32 maxFramesPerSlice;
     float masterVolume;
+    float saturation;
     OscillatorSettings osc1;
     OscillatorSettings osc2;
     OscillatorSettings osc3;

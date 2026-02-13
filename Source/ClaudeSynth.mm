@@ -85,6 +85,7 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
 
     // Initialize parameters
     data->masterVolume = 1.0f;
+    data->saturation = 0.0f;
 
     // Oscillator 1 (active by default)
     data->osc1.waveform = kWaveform_Sine;
@@ -503,6 +504,14 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->maxValue = 1.0f;
                         info->defaultValue = 1.0f;
                         info->cfNameString = CFSTR("Master Volume");
+                        break;
+
+                    case kParam_Saturation:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("Saturation");
                         break;
 
                     case kParam_Osc1_Waveform:
@@ -1720,6 +1729,13 @@ static OSStatus ClaudeSynth_Render(void *self,
             }
         }
 
+        // Apply saturation (soft clipping with tanh)
+        if (data->saturation > 0.0f) {
+            // Drive: 1.0 to 10.0 based on saturation amount
+            float drive = 1.0f + (data->saturation * 9.0f);
+            sample = tanhf(sample * drive) / tanhf(drive);  // Compensate for gain
+        }
+
         // Apply master volume and output to both channels
         float volumedSample = sample * data->masterVolume;
         left[frame] = volumedSample;
@@ -1982,6 +1998,10 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
             data->masterVolume = inValue;
             return noErr;
 
+        case kParam_Saturation:
+            data->saturation = inValue;
+            return noErr;
+
         case kParam_Osc1_Waveform:
             data->osc1.waveform = (int)inValue;
             UpdateAllVoices(data);
@@ -2234,6 +2254,10 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
     switch (inID) {
         case kParam_MasterVolume:
             *outValue = data->masterVolume;
+            return noErr;
+
+        case kParam_Saturation:
+            *outValue = data->saturation;
             return noErr;
 
         case kParam_Osc1_Waveform:

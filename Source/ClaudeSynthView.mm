@@ -141,7 +141,7 @@
 }
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au {
-    self = [super initWithFrame:NSMakeRect(0, 0, 1440, 520)];
+    self = [super initWithFrame:NSMakeRect(0, 0, 1240, 460)];
     if (self) {
         mAU = au;
 
@@ -155,7 +155,7 @@
         self.layer.backgroundColor = [[ClaudeSynthView matrixBackground] CGColor];
 
         // Title label at top
-        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 480, 1440, 30)];
+        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 425, 1240, 25)];
         [titleLabel setStringValue:@"ClaudeSynth"];
         [titleLabel setAlignment:NSTextAlignmentCenter];
         [titleLabel setBezeled:NO];
@@ -167,7 +167,7 @@
         [self addSubview:titleLabel];
 
         // Version label at top right
-        NSTextField *versionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(1330, 485, 100, 20)];
+        NSTextField *versionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(1130, 430, 100, 20)];
         [versionLabel setStringValue:@"v" CLAUDESYNTH_VERSION];
         [versionLabel setAlignment:NSTextAlignmentRight];
         [versionLabel setBezeled:NO];
@@ -182,7 +182,7 @@
         NSColor *dividerColor = [ClaudeSynthView matrixDimGreen];
 
         // Horizontal divider separating top and bottom sections
-        NSBox *horizontalDivider = [[NSBox alloc] initWithFrame:NSMakeRect(0, 190, 1440, 1)];
+        NSBox *horizontalDivider = [[NSBox alloc] initWithFrame:NSMakeRect(0, 190, 1240, 1)];
         [horizontalDivider setBoxType:NSBoxCustom];
         [horizontalDivider setBorderType:NSLineBorder];
         [horizontalDivider setBorderColor:dividerColor];
@@ -240,14 +240,14 @@
         // Each section is 180 pixels wide
         int sectionWidth = 180;
         int osc1X = 0;
-        int osc2X = 180;
-        int osc3X = 360;
-        int lfo1X = 540;
-        int lfo2X = 630;
-        int filterX = 720;
-        int envelopeX = 900;
-        int filterEnvelopeX = 1080;
-        int masterX = 1260;
+        int osc2X = 150;
+        int osc3X = 300;
+        int lfo1X = 450;
+        int lfo2X = 540;
+        int filterX = 630;
+        int envelopeX = 780;
+        int filterEnvelopeX = 930;
+        int masterX = 1080;
 
         // ===== OSCILLATOR 1 =====
         [self createOscillatorSection:1 atX:osc1X];
@@ -288,7 +288,7 @@
         [cutoffLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:cutoffLabel];
 
-        cutoffKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 350, 80, 80)];
+        cutoffKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 350, 50, 50)];
         [cutoffKnob setMinValue:0.0];
         [cutoffKnob setMaxValue:1.0];
 
@@ -327,7 +327,7 @@
         [resonanceLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:resonanceLabel];
 
-        resonanceKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 235, 80, 80)];
+        resonanceKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 235, 50, 50)];
         [resonanceKnob setMinValue:0.5];
         [resonanceKnob setMaxValue:10.0];
 
@@ -511,9 +511,9 @@
         [filterReleaseDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:filterReleaseDisplay];
 
-        // ===== MASTER VOLUME SECTION =====
+        // ===== AMP SECTION =====
         masterVolumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 455, 120, 20)];
-        [masterVolumeLabel setStringValue:@"Master"];
+        [masterVolumeLabel setStringValue:@"Amp"];
         [masterVolumeLabel setAlignment:NSTextAlignmentCenter];
         [masterVolumeLabel setBezeled:NO];
         [masterVolumeLabel setDrawsBackground:NO];
@@ -524,7 +524,7 @@
         [self addSubview:masterVolumeLabel];
 
         NSTextField *volumeSubLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 420, 120, 16)];
-        [volumeSubLabel setStringValue:@"Volume"];
+        [volumeSubLabel setStringValue:@"Master"];
         [volumeSubLabel setAlignment:NSTextAlignmentCenter];
         [volumeSubLabel setBezeled:NO];
         [volumeSubLabel setDrawsBackground:NO];
@@ -534,7 +534,7 @@
         [volumeSubLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:volumeSubLabel];
 
-        masterVolumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(masterX + 50, 350, 80, 80)];
+        masterVolumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(masterX + 50, 350, 50, 50)];
         [masterVolumeKnob setMinValue:0.0];
         [masterVolumeKnob setMaxValue:1.0];
 
@@ -560,12 +560,52 @@
         [masterVolumeDisplay setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:masterVolumeDisplay];
 
+        // Saturation label
+        NSTextField *saturationLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 305, 120, 16)];
+        [saturationLabel setStringValue:@"Saturation"];
+        [saturationLabel setAlignment:NSTextAlignmentCenter];
+        [saturationLabel setBezeled:NO];
+        [saturationLabel setDrawsBackground:NO];
+        [saturationLabel setEditable:NO];
+        [saturationLabel setSelectable:NO];
+        [saturationLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [saturationLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
+        [self addSubview:saturationLabel];
+
+        // Saturation knob
+        RotaryKnob *saturationKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(masterX + 50, 235, 50, 50)];
+        [saturationKnob setMinValue:0.0];
+        [saturationKnob setMaxValue:1.0];
+
+        AudioUnitParameterValue initialSaturation = 0.0f;
+        if (mAU) {
+            AudioUnitGetParameter(mAU, kParam_Saturation, kAudioUnitScope_Global, 0, &initialSaturation);
+        }
+        [saturationKnob setDoubleValue:initialSaturation];
+
+        [saturationKnob setTarget:self];
+        [saturationKnob setAction:@selector(saturationChanged:)];
+        [saturationKnob setContinuous:YES];
+        [self addSubview:saturationKnob];
+
+        // Saturation display
+        saturationDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 215, 120, 20)];
+        [saturationDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", initialSaturation * 100.0]];
+        [saturationDisplay setAlignment:NSTextAlignmentCenter];
+        [saturationDisplay setBezeled:NO];
+        [saturationDisplay setDrawsBackground:NO];
+        [saturationDisplay setEditable:NO];
+        [saturationDisplay setSelectable:NO];
+        [saturationDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+        [saturationDisplay setTextColor:[ClaudeSynthView matrixCyan]];
+        [self addSubview:saturationDisplay];
+
         // ===== MODULATION MATRIX SECTION =====
         [self createModulationMatrixSection];
 
         // ===== EFFECTS SECTION =====
         // Place in bottom section, to the right of modulation matrix
-        int effectsX = 600;
+        int effectsX = 480;
         int effectsY = 10;
 
         // Section label
@@ -682,7 +722,7 @@
         [self addSubview:effectIntensityDisplay];
 
         // ===== ARPEGGIATOR SECTION =====
-        int arpX = 850;
+        int arpX = 700;
         int arpY = 10;
 
         // Section label
@@ -825,7 +865,7 @@
 
         // ===== OSCILLOSCOPE =====
         // Position in bottom right corner
-        oscilloscope = [[MatrixOscilloscope alloc] initWithFrame:NSMakeRect(1150, 10, 280, 150)];
+        oscilloscope = [[MatrixOscilloscope alloc] initWithFrame:NSMakeRect(950, 10, 280, 150)];
         [self addSubview:oscilloscope];
 
         // Set oscilloscope pointer in audio unit
@@ -1398,6 +1438,14 @@
         AudioUnitSetParameter(mAU, kParam_MasterVolume, kAudioUnitScope_Global, 0, value, 0);
     }
     [masterVolumeDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
+}
+
+- (void)saturationChanged:(id)sender {
+    float value = [(RotaryKnob *)sender floatValue];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_Saturation, kAudioUnitScope_Global, 0, value, 0);
+    }
+    [saturationDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
 }
 
 // Oscillator 1
