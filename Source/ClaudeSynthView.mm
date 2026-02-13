@@ -95,6 +95,18 @@
         [titleLabel setTextColor:[NSColor whiteColor]];
         [self addSubview:titleLabel];
 
+        // Version label at top right
+        NSTextField *versionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(1330, 485, 100, 20)];
+        [versionLabel setStringValue:@"v" CLAUDESYNTH_VERSION];
+        [versionLabel setAlignment:NSTextAlignmentRight];
+        [versionLabel setBezeled:NO];
+        [versionLabel setDrawsBackground:NO];
+        [versionLabel setEditable:NO];
+        [versionLabel setSelectable:NO];
+        [versionLabel setFont:[NSFont systemFontOfSize:9]];
+        [versionLabel setTextColor:[NSColor colorWithWhite:0.5 alpha:1.0]];
+        [self addSubview:versionLabel];
+
         // ===== VISUAL DIVIDERS =====
         NSColor *dividerColor = [NSColor colorWithWhite:0.25 alpha:1.0];
 

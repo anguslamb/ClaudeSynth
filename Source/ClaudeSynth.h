@@ -4,6 +4,8 @@
 #include <AudioToolbox/AudioToolbox.h>
 #include "SynthVoice.h"
 
+#define CLAUDESYNTH_VERSION "1.0.0"
+
 static const int kNumVoices = 16;
 static const int kNumModSlots = 4;
 
