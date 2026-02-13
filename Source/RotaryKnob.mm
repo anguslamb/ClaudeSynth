@@ -1,6 +1,14 @@
 #import "RotaryKnob.h"
 #import <QuartzCore/QuartzCore.h>
 
+@interface ClaudeSynthView : NSView
++ (NSColor *)matrixBrightGreen;
++ (NSColor *)matrixMediumGreen;
++ (NSColor *)matrixDimGreen;
++ (NSColor *)matrixDarkGreen;
++ (NSColor *)matrixBackground;
+@end
+
 @implementation RotaryKnob {
     NSPoint lastMouseLocation;
     double startValue;
@@ -34,19 +42,20 @@
         NSMakeRect(centerX - radius, centerY - radius, radius * 2, radius * 2)];
 
     // Gradient fill for 3D effect
-    NSGradient *gradient = [[NSGradient alloc] initWithStartingColor:[NSColor colorWithWhite:0.4 alpha:1.0]
-                                                         endingColor:[NSColor colorWithWhite:0.25 alpha:1.0]];
+    NSColor *darkGreen1 = [NSColor colorWithRed:0.0 green:0.12 blue:0.0 alpha:1.0];
+    NSColor *darkGreen2 = [ClaudeSynthView matrixDarkGreen];
+    NSGradient *gradient = [[NSGradient alloc] initWithStartingColor:darkGreen1 endingColor:darkGreen2];
     [gradient drawInBezierPath:outerCircle angle:-90];
 
     // Draw inner circle (darker center)
     CGFloat innerRadius = radius * 0.7;
     NSBezierPath *innerCircle = [NSBezierPath bezierPathWithOvalInRect:
         NSMakeRect(centerX - innerRadius, centerY - innerRadius, innerRadius * 2, innerRadius * 2)];
-    [[NSColor colorWithWhite:0.15 alpha:1.0] setFill];
+    [[ClaudeSynthView matrixBackground] setFill];
     [innerCircle fill];
 
     // Draw border
-    [[NSColor colorWithWhite:0.5 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixMediumGreen] setStroke];
     [outerCircle setLineWidth:1.0];
     [outerCircle stroke];
 
@@ -81,7 +90,7 @@
         [centerMark moveToPoint:NSMakePoint(centerX + cos(centerAngleRad) * (radius * 0.75),
                                             centerY + sin(centerAngleRad) * (radius * 0.75))];
         [centerMark lineToPoint:NSMakePoint(markX, markY)];
-        [[NSColor colorWithWhite:0.6 alpha:0.5] setStroke];
+        [[ClaudeSynthView matrixDimGreen] setStroke];
         [centerMark setLineWidth:2.0];
         [centerMark stroke];
     } else {
@@ -101,7 +110,7 @@
     NSBezierPath *indicator = [NSBezierPath bezierPath];
     [indicator moveToPoint:NSMakePoint(centerX, centerY)];
     [indicator lineToPoint:NSMakePoint(indicatorX, indicatorY)];
-    [[NSColor colorWithRed:0.3 green:0.6 blue:0.9 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixBrightGreen] setStroke];
     [indicator setLineWidth:3.0];
     [indicator setLineCapStyle:NSLineCapStyleRound];
     [indicator stroke];
@@ -110,7 +119,7 @@
     CGFloat dotRadius = 4.0;
     NSBezierPath *centerDot = [NSBezierPath bezierPathWithOvalInRect:
         NSMakeRect(centerX - dotRadius, centerY - dotRadius, dotRadius * 2, dotRadius * 2)];
-    [[NSColor colorWithWhite:0.3 alpha:1.0] setFill];
+    [[ClaudeSynthView matrixBackground] setFill];
     [centerDot fill];
 }
 
@@ -129,7 +138,7 @@
     NSBezierPath *marker = [NSBezierPath bezierPath];
     [marker moveToPoint:NSMakePoint(innerX, innerY)];
     [marker lineToPoint:NSMakePoint(outerX, outerY)];
-    [[NSColor colorWithWhite:0.6 alpha:0.7] setStroke];
+    [[ClaudeSynthView matrixDimGreen] setStroke];
     [marker setLineWidth:2.0];
     [marker setLineCapStyle:NSLineCapStyleRound];
     [marker stroke];

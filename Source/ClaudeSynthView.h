@@ -4,6 +4,9 @@
 #import <AudioToolbox/AudioToolbox.h>
 #import "RotaryKnob.h"
 #import "ADSREnvelopeView.h"
+#import "MatrixDropdown.h"
+#import "MatrixCheckbox.h"
+#import "MatrixSlider.h"
 
 @interface ClaudeSynthView : NSView
 {
@@ -16,7 +19,7 @@
 
     // Oscillator 1
     NSTextField *osc1Label;
-    NSSlider *osc1WaveformKnob;
+    MatrixSlider *osc1WaveformKnob;
     NSTextField *osc1WaveformLabel;
     RotaryKnob *osc1OctaveKnob;
     NSTextField *osc1OctaveLabel;
@@ -30,7 +33,7 @@
 
     // Oscillator 2
     NSTextField *osc2Label;
-    NSSlider *osc2WaveformKnob;
+    MatrixSlider *osc2WaveformKnob;
     NSTextField *osc2WaveformLabel;
     RotaryKnob *osc2OctaveKnob;
     NSTextField *osc2OctaveLabel;
@@ -44,7 +47,7 @@
 
     // Oscillator 3
     NSTextField *osc3Label;
-    NSSlider *osc3WaveformKnob;
+    MatrixSlider *osc3WaveformKnob;
     NSTextField *osc3WaveformLabel;
     RotaryKnob *osc3OctaveKnob;
     NSTextField *osc3OctaveLabel;
@@ -82,12 +85,12 @@
     NSTextField *filterReleaseDisplay;
 
     // LFO 1
-    NSSlider *lfoWaveformKnob;
+    MatrixSlider *lfoWaveformKnob;
     RotaryKnob *lfoRateKnob;
     NSTextField *lfoRateDisplay;
 
     // LFO 2
-    NSSlider *lfo2WaveformKnob;
+    MatrixSlider *lfo2WaveformKnob;
     RotaryKnob *lfo2RateKnob;
     NSTextField *lfo2RateDisplay;
 
@@ -95,17 +98,17 @@
     NSTimer *updateTimer;
 
     // Effects
-    NSPopUpButton *effectTypePopup;
+    MatrixDropdown *effectTypePopup;
     RotaryKnob *effectRateKnob;
     NSTextField *effectRateDisplay;
     RotaryKnob *effectIntensityKnob;
     NSTextField *effectIntensityDisplay;
 
     // Arpeggiator
-    NSButton *arpEnableButton;
-    NSPopUpButton *arpRatePopup;
-    NSPopUpButton *arpModePopup;
-    NSPopUpButton *arpOctavesPopup;
+    MatrixCheckbox *arpEnableButton;
+    MatrixDropdown *arpRatePopup;
+    MatrixDropdown *arpModePopup;
+    MatrixDropdown *arpOctavesPopup;
     RotaryKnob *arpGateKnob;
     NSTextField *arpGateDisplay;
 }

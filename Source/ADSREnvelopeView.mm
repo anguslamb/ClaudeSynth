@@ -1,5 +1,13 @@
 #import "ADSREnvelopeView.h"
 
+@interface ClaudeSynthView : NSView
++ (NSColor *)matrixBrightGreen;
++ (NSColor *)matrixMediumGreen;
++ (NSColor *)matrixDimGreen;
++ (NSColor *)matrixDarkGreen;
++ (NSColor *)matrixBackground;
+@end
+
 typedef enum {
     kDragNone = 0,
     kDragAttack,
@@ -36,7 +44,7 @@ typedef enum {
     CGFloat graphHeight = height - 2 * padding;
 
     // Draw background
-    [[NSColor colorWithWhite:0.1 alpha:1.0] setFill];
+    [[ClaudeSynthView matrixBackground] setFill];
     NSRectFill(bounds);
 
     // Calculate envelope points
@@ -54,7 +62,7 @@ typedef enum {
     CGFloat sustainY = bottomY + self.sustain * graphHeight;
 
     // Draw grid lines
-    [[NSColor colorWithWhite:0.2 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixDimGreen] setStroke];
     NSBezierPath *gridPath = [NSBezierPath bezierPath];
     [gridPath setLineWidth:0.5];
 
@@ -88,14 +96,14 @@ typedef enum {
     [envelopePath lineToPoint:NSMakePoint(releaseX, bottomY)];
 
     // Draw the envelope line
-    [[NSColor colorWithRed:0.3 green:0.7 blue:1.0 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixBrightGreen] setStroke];
     [envelopePath stroke];
 
-    // Draw draggable vertices (small blue squares)
+    // Draw draggable vertices (small green squares)
     CGFloat vertexSize = 6.0;  // Total size of the square
     CGFloat halfSize = vertexSize / 2.0;
-    [[NSColor colorWithRed:0.3 green:0.7 blue:1.0 alpha:1.0] setFill];  // Blue to match line
-    [[NSColor colorWithRed:0.3 green:0.7 blue:1.0 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixBrightGreen] setFill];  // Green to match line
+    [[ClaudeSynthView matrixBrightGreen] setStroke];
 
     // Attack vertex
     NSBezierPath *attackVertex = [NSBezierPath bezierPathWithRect:
@@ -119,8 +127,8 @@ typedef enum {
 
     // Draw labels
     NSDictionary *labelAttrs = @{
-        NSFontAttributeName: [NSFont systemFontOfSize:9],
-        NSForegroundColorAttributeName: [NSColor colorWithWhite:0.6 alpha:1.0]
+        NSFontAttributeName: [NSFont fontWithName:@"Monaco" size:9] ?: [NSFont systemFontOfSize:9],
+        NSForegroundColorAttributeName: [ClaudeSynthView matrixMediumGreen]
     };
 
     [@"A" drawAtPoint:NSMakePoint(attackX - 3, topY + 2) withAttributes:labelAttrs];

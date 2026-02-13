@@ -30,7 +30,10 @@ SOURCES = Source/ClaudeSynth.cpp \
           Source/ClaudeSynthView.mm \
           Source/RotaryKnob.mm \
           Source/DiscreteKnob.mm \
-          Source/ADSREnvelopeView.mm
+          Source/ADSREnvelopeView.mm \
+          Source/MatrixDropdown.mm \
+          Source/MatrixCheckbox.mm \
+          Source/MatrixSlider.mm
 
 # Bundle structure
 BUNDLE_DIR = build/$(PLUGIN_NAME).component

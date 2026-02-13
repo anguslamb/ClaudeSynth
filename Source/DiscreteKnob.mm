@@ -1,6 +1,14 @@
 #import "DiscreteKnob.h"
 #import <QuartzCore/QuartzCore.h>
 
+@interface ClaudeSynthView : NSView
++ (NSColor *)matrixBrightGreen;
++ (NSColor *)matrixMediumGreen;
++ (NSColor *)matrixDimGreen;
++ (NSColor *)matrixDarkGreen;
++ (NSColor *)matrixBackground;
+@end
+
 @implementation DiscreteKnob {
     NSPoint lastMouseLocation;
     int startPosition;
@@ -33,8 +41,9 @@
         NSMakeRect(centerX - radius, centerY - radius, radius * 2, radius * 2)];
 
     // Gradient fill for 3D effect
-    NSGradient *gradient = [[NSGradient alloc] initWithStartingColor:[NSColor colorWithWhite:0.35 alpha:1.0]
-                                                         endingColor:[NSColor colorWithWhite:0.2 alpha:1.0]];
+    NSColor *darkGreen1 = [NSColor colorWithRed:0.0 green:0.13 blue:0.0 alpha:1.0];
+    NSColor *darkGreen2 = [NSColor colorWithRed:0.0 green:0.08 blue:0.0 alpha:1.0];
+    NSGradient *gradient = [[NSGradient alloc] initWithStartingColor:darkGreen1 endingColor:darkGreen2];
     [gradient drawInBezierPath:outerCircle angle:-90];
 
     // Draw position markers around the knob
@@ -50,15 +59,15 @@
             NSMakeRect(markerX - 2, markerY - 2, 4, 4)];
 
         if (i == self.selectedPosition) {
-            [[NSColor colorWithRed:0.3 green:0.6 blue:0.9 alpha:1.0] setFill];
+            [[ClaudeSynthView matrixBrightGreen] setFill];
         } else {
-            [[NSColor colorWithWhite:0.5 alpha:1.0] setFill];
+            [[ClaudeSynthView matrixDimGreen] setFill];
         }
         [marker fill];
     }
 
     // Draw border
-    [[NSColor colorWithWhite:0.5 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixMediumGreen] setStroke];
     [outerCircle setLineWidth:1.0];
     [outerCircle stroke];
 
@@ -66,7 +75,7 @@
     CGFloat innerRadius = radius * 0.65;
     NSBezierPath *innerCircle = [NSBezierPath bezierPathWithOvalInRect:
         NSMakeRect(centerX - innerRadius, centerY - innerRadius, innerRadius * 2, innerRadius * 2)];
-    [[NSColor colorWithWhite:0.15 alpha:1.0] setFill];
+    [[ClaudeSynthView matrixBackground] setFill];
     [innerCircle fill];
 
     // Calculate indicator angle for selected position
@@ -81,7 +90,7 @@
     NSBezierPath *indicator = [NSBezierPath bezierPath];
     [indicator moveToPoint:NSMakePoint(centerX, centerY)];
     [indicator lineToPoint:NSMakePoint(indicatorX, indicatorY)];
-    [[NSColor colorWithRed:0.3 green:0.6 blue:0.9 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixBrightGreen] setStroke];
     [indicator setLineWidth:3.0];
     [indicator setLineCapStyle:NSLineCapStyleRound];
     [indicator stroke];
@@ -90,15 +99,15 @@
     CGFloat dotRadius = 4.0;
     NSBezierPath *centerDot = [NSBezierPath bezierPathWithOvalInRect:
         NSMakeRect(centerX - dotRadius, centerY - dotRadius, dotRadius * 2, dotRadius * 2)];
-    [[NSColor colorWithWhite:0.3 alpha:1.0] setFill];
+    [[ClaudeSynthView matrixBackground] setFill];
     [centerDot fill];
 
     // Draw label below knob
     if (self.selectedPosition < self.labels.count) {
         NSString *label = self.labels[self.selectedPosition];
         NSDictionary *attributes = @{
-            NSFontAttributeName: [NSFont systemFontOfSize:11],
-            NSForegroundColorAttributeName: [NSColor whiteColor]
+            NSFontAttributeName: [NSFont fontWithName:@"Monaco" size:11] ?: [NSFont systemFontOfSize:11],
+            NSForegroundColorAttributeName: [ClaudeSynthView matrixMediumGreen]
         };
         NSSize labelSize = [label sizeWithAttributes:attributes];
         NSPoint labelPoint = NSMakePoint(centerX - labelSize.width / 2.0, 5);

@@ -1,5 +1,20 @@
 #import "ClaudeSynthView.h"
 #import "ClaudeSynth.h"
+#import "MatrixDropdown.h"
+#import "MatrixCheckbox.h"
+#import "MatrixSlider.h"
+
+// Forward declare ClaudeSynthView's color methods for use in WaveformIconView
+@interface ClaudeSynthView (MatrixTheme)
++ (NSColor *)matrixBackground;
++ (NSColor *)matrixBrightGreen;
++ (NSColor *)matrixMediumGreen;
++ (NSColor *)matrixDimGreen;
++ (NSColor *)matrixDarkGreen;
++ (NSColor *)matrixCyan;
++ (NSFont *)matrixFontOfSize:(CGFloat)size;
++ (NSFont *)matrixBoldFontOfSize:(CGFloat)size;
+@end
 
 // Helper view class for drawing waveform icons
 @interface WaveformIconView : NSView
@@ -59,7 +74,7 @@
             break;
     }
 
-    [[NSColor colorWithWhite:0.6 alpha:1.0] setStroke];
+    [[ClaudeSynthView matrixMediumGreen] setStroke];
     [path stroke];
 }
 
@@ -74,14 +89,68 @@
 
 @implementation ClaudeSynthView
 
+// Matrix Theme Color Helpers
++ (NSColor *)matrixBackground {
+    return [NSColor blackColor];
+}
+
++ (NSColor *)matrixBrightGreen {
+    return [NSColor colorWithRed:0.0 green:1.0 blue:0.0 alpha:1.0];  // #00FF00
+}
+
++ (NSColor *)matrixMediumGreen {
+    return [NSColor colorWithRed:0.0 green:0.67 blue:0.0 alpha:1.0];  // #00AA00
+}
+
++ (NSColor *)matrixDimGreen {
+    return [NSColor colorWithRed:0.0 green:0.4 blue:0.0 alpha:1.0];  // #006600
+}
+
++ (NSColor *)matrixDarkGreen {
+    return [NSColor colorWithRed:0.0 green:0.1 blue:0.0 alpha:1.0];  // #001A00
+}
+
++ (NSColor *)matrixCyan {
+    return [NSColor colorWithRed:0.0 green:1.0 blue:1.0 alpha:1.0];  // #00FFFF
+}
+
++ (NSFont *)matrixFontOfSize:(CGFloat)size {
+    NSFont *monacoFont = [NSFont fontWithName:@"Monaco" size:size];
+    if (monacoFont) return monacoFont;
+
+    // Fallback to system monospace font
+    if (@available(macOS 10.15, *)) {
+        return [NSFont monospacedSystemFontOfSize:size weight:NSFontWeightRegular];
+    } else {
+        return [NSFont fontWithName:@"Menlo" size:size] ?: [NSFont systemFontOfSize:size];
+    }
+}
+
++ (NSFont *)matrixBoldFontOfSize:(CGFloat)size {
+    NSFont *monacoBoldFont = [NSFont fontWithName:@"Monaco-Bold" size:size];
+    if (monacoBoldFont) return monacoBoldFont;
+
+    // Fallback to system monospace font
+    if (@available(macOS 10.15, *)) {
+        return [NSFont monospacedSystemFontOfSize:size weight:NSFontWeightBold];
+    } else {
+        return [NSFont fontWithName:@"Menlo-Bold" size:size] ?: [NSFont boldSystemFontOfSize:size];
+    }
+}
+
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au {
     self = [super initWithFrame:NSMakeRect(0, 0, 1440, 520)];
     if (self) {
         mAU = au;
 
+        // Force dark appearance for entire plugin (affects all system controls)
+        if (@available(macOS 10.14, *)) {
+            [self setAppearance:[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]];
+        }
+
         // Set dark background
         [self setWantsLayer:YES];
-        self.layer.backgroundColor = [[NSColor colorWithWhite:0.15 alpha:1.0] CGColor];
+        self.layer.backgroundColor = [[ClaudeSynthView matrixBackground] CGColor];
 
         // Title label at top
         titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 480, 1440, 30)];
@@ -91,8 +160,8 @@
         [titleLabel setDrawsBackground:NO];
         [titleLabel setEditable:NO];
         [titleLabel setSelectable:NO];
-        [titleLabel setFont:[NSFont systemFontOfSize:20 weight:NSFontWeightBold]];
-        [titleLabel setTextColor:[NSColor whiteColor]];
+        [titleLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:20]];
+        [titleLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:titleLabel];
 
         // Version label at top right
@@ -103,12 +172,12 @@
         [versionLabel setDrawsBackground:NO];
         [versionLabel setEditable:NO];
         [versionLabel setSelectable:NO];
-        [versionLabel setFont:[NSFont systemFontOfSize:9]];
-        [versionLabel setTextColor:[NSColor colorWithWhite:0.5 alpha:1.0]];
+        [versionLabel setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [versionLabel setTextColor:[ClaudeSynthView matrixDimGreen]];
         [self addSubview:versionLabel];
 
         // ===== VISUAL DIVIDERS =====
-        NSColor *dividerColor = [NSColor colorWithWhite:0.25 alpha:1.0];
+        NSColor *dividerColor = [ClaudeSynthView matrixDimGreen];
 
         // Horizontal divider separating top and bottom sections
         NSBox *horizontalDivider = [[NSBox alloc] initWithFrame:NSMakeRect(0, 190, 1440, 1)];
@@ -201,8 +270,8 @@
         [filterLabel setDrawsBackground:NO];
         [filterLabel setEditable:NO];
         [filterLabel setSelectable:NO];
-        [filterLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-        [filterLabel setTextColor:[NSColor whiteColor]];
+        [filterLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+        [filterLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:filterLabel];
 
         // Filter Cutoff
@@ -213,8 +282,8 @@
         [cutoffLabel setDrawsBackground:NO];
         [cutoffLabel setEditable:NO];
         [cutoffLabel setSelectable:NO];
-        [cutoffLabel setFont:[NSFont systemFontOfSize:11]];
-        [cutoffLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [cutoffLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [cutoffLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:cutoffLabel];
 
         cutoffKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 350, 80, 80)];
@@ -240,8 +309,8 @@
         [cutoffValueDisplay setDrawsBackground:NO];
         [cutoffValueDisplay setEditable:NO];
         [cutoffValueDisplay setSelectable:NO];
-        [cutoffValueDisplay setFont:[NSFont systemFontOfSize:10]];
-        [cutoffValueDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [cutoffValueDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+        [cutoffValueDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:cutoffValueDisplay];
 
         // Filter Resonance
@@ -252,8 +321,8 @@
         [resonanceLabel setDrawsBackground:NO];
         [resonanceLabel setEditable:NO];
         [resonanceLabel setSelectable:NO];
-        [resonanceLabel setFont:[NSFont systemFontOfSize:11]];
-        [resonanceLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [resonanceLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [resonanceLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:resonanceLabel];
 
         resonanceKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 235, 80, 80)];
@@ -278,8 +347,8 @@
         [resonanceValueDisplay setDrawsBackground:NO];
         [resonanceValueDisplay setEditable:NO];
         [resonanceValueDisplay setSelectable:NO];
-        [resonanceValueDisplay setFont:[NSFont systemFontOfSize:10]];
-        [resonanceValueDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [resonanceValueDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+        [resonanceValueDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:resonanceValueDisplay];
 
         // ===== ENVELOPE SECTION =====
@@ -290,8 +359,8 @@
         [envelopeLabel setDrawsBackground:NO];
         [envelopeLabel setEditable:NO];
         [envelopeLabel setSelectable:NO];
-        [envelopeLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-        [envelopeLabel setTextColor:[NSColor whiteColor]];
+        [envelopeLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+        [envelopeLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:envelopeLabel];
 
         // Get initial envelope values
@@ -324,8 +393,8 @@
         [attackDisplay setDrawsBackground:NO];
         [attackDisplay setEditable:NO];
         [attackDisplay setSelectable:NO];
-        [attackDisplay setFont:[NSFont systemFontOfSize:9]];
-        [attackDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [attackDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [attackDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:attackDisplay];
 
         decayDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 50, 285, 40, 16)];
@@ -335,8 +404,8 @@
         [decayDisplay setDrawsBackground:NO];
         [decayDisplay setEditable:NO];
         [decayDisplay setSelectable:NO];
-        [decayDisplay setFont:[NSFont systemFontOfSize:9]];
-        [decayDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [decayDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [decayDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:decayDisplay];
 
         sustainDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 90, 285, 40, 16)];
@@ -346,8 +415,8 @@
         [sustainDisplay setDrawsBackground:NO];
         [sustainDisplay setEditable:NO];
         [sustainDisplay setSelectable:NO];
-        [sustainDisplay setFont:[NSFont systemFontOfSize:9]];
-        [sustainDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [sustainDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [sustainDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:sustainDisplay];
 
         releaseDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 130, 285, 40, 16)];
@@ -357,8 +426,8 @@
         [releaseDisplay setDrawsBackground:NO];
         [releaseDisplay setEditable:NO];
         [releaseDisplay setSelectable:NO];
-        [releaseDisplay setFont:[NSFont systemFontOfSize:9]];
-        [releaseDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [releaseDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [releaseDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:releaseDisplay];
 
         // ===== FILTER ENVELOPE SECTION =====
@@ -369,8 +438,8 @@
         [filterEnvelopeLabel setDrawsBackground:NO];
         [filterEnvelopeLabel setEditable:NO];
         [filterEnvelopeLabel setSelectable:NO];
-        [filterEnvelopeLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-        [filterEnvelopeLabel setTextColor:[NSColor whiteColor]];
+        [filterEnvelopeLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+        [filterEnvelopeLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:filterEnvelopeLabel];
 
         // Get initial filter envelope values
@@ -403,8 +472,8 @@
         [filterAttackDisplay setDrawsBackground:NO];
         [filterAttackDisplay setEditable:NO];
         [filterAttackDisplay setSelectable:NO];
-        [filterAttackDisplay setFont:[NSFont systemFontOfSize:9]];
-        [filterAttackDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [filterAttackDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [filterAttackDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:filterAttackDisplay];
 
         filterDecayDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterEnvelopeX + 50, 285, 40, 16)];
@@ -414,8 +483,8 @@
         [filterDecayDisplay setDrawsBackground:NO];
         [filterDecayDisplay setEditable:NO];
         [filterDecayDisplay setSelectable:NO];
-        [filterDecayDisplay setFont:[NSFont systemFontOfSize:9]];
-        [filterDecayDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [filterDecayDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [filterDecayDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:filterDecayDisplay];
 
         filterSustainDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterEnvelopeX + 90, 285, 40, 16)];
@@ -425,8 +494,8 @@
         [filterSustainDisplay setDrawsBackground:NO];
         [filterSustainDisplay setEditable:NO];
         [filterSustainDisplay setSelectable:NO];
-        [filterSustainDisplay setFont:[NSFont systemFontOfSize:9]];
-        [filterSustainDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [filterSustainDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [filterSustainDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:filterSustainDisplay];
 
         filterReleaseDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterEnvelopeX + 130, 285, 40, 16)];
@@ -436,8 +505,8 @@
         [filterReleaseDisplay setDrawsBackground:NO];
         [filterReleaseDisplay setEditable:NO];
         [filterReleaseDisplay setSelectable:NO];
-        [filterReleaseDisplay setFont:[NSFont systemFontOfSize:9]];
-        [filterReleaseDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [filterReleaseDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [filterReleaseDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:filterReleaseDisplay];
 
         // ===== MASTER VOLUME SECTION =====
@@ -448,8 +517,8 @@
         [masterVolumeLabel setDrawsBackground:NO];
         [masterVolumeLabel setEditable:NO];
         [masterVolumeLabel setSelectable:NO];
-        [masterVolumeLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-        [masterVolumeLabel setTextColor:[NSColor whiteColor]];
+        [masterVolumeLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+        [masterVolumeLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:masterVolumeLabel];
 
         NSTextField *volumeSubLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 420, 120, 16)];
@@ -459,8 +528,8 @@
         [volumeSubLabel setDrawsBackground:NO];
         [volumeSubLabel setEditable:NO];
         [volumeSubLabel setSelectable:NO];
-        [volumeSubLabel setFont:[NSFont systemFontOfSize:11]];
-        [volumeSubLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [volumeSubLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [volumeSubLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:volumeSubLabel];
 
         masterVolumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(masterX + 50, 350, 80, 80)];
@@ -485,8 +554,8 @@
         [masterVolumeDisplay setDrawsBackground:NO];
         [masterVolumeDisplay setEditable:NO];
         [masterVolumeDisplay setSelectable:NO];
-        [masterVolumeDisplay setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightMedium]];
-        [masterVolumeDisplay setTextColor:[NSColor whiteColor]];
+        [masterVolumeDisplay setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+        [masterVolumeDisplay setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:masterVolumeDisplay];
 
         // ===== MODULATION MATRIX SECTION =====
@@ -505,8 +574,8 @@
         [effectsLabel setDrawsBackground:NO];
         [effectsLabel setEditable:NO];
         [effectsLabel setSelectable:NO];
-        [effectsLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-        [effectsLabel setTextColor:[NSColor whiteColor]];
+        [effectsLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+        [effectsLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:effectsLabel];
 
         // Effect Type selector
@@ -517,11 +586,11 @@
         [effectTypeLabel setDrawsBackground:NO];
         [effectTypeLabel setEditable:NO];
         [effectTypeLabel setSelectable:NO];
-        [effectTypeLabel setFont:[NSFont systemFontOfSize:11]];
-        [effectTypeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [effectTypeLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [effectTypeLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:effectTypeLabel];
 
-        effectTypePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(effectsX + 70, effectsY + 110, 160, 25)];
+        effectTypePopup = [[MatrixDropdown alloc] initWithFrame:NSMakeRect(effectsX + 70, effectsY + 110, 160, 25)];
         [effectTypePopup addItemWithTitle:@"None"];
         [effectTypePopup addItemWithTitle:@"Chorus"];
         [effectTypePopup addItemWithTitle:@"Phaser"];
@@ -544,8 +613,8 @@
         [rateLabel setDrawsBackground:NO];
         [rateLabel setEditable:NO];
         [rateLabel setSelectable:NO];
-        [rateLabel setFont:[NSFont systemFontOfSize:11]];
-        [rateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [rateLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [rateLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:rateLabel];
 
         effectRateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(effectsX + 35, effectsY + 25, 50, 50)];
@@ -569,8 +638,8 @@
         [effectRateDisplay setDrawsBackground:NO];
         [effectRateDisplay setEditable:NO];
         [effectRateDisplay setSelectable:NO];
-        [effectRateDisplay setFont:[NSFont systemFontOfSize:10]];
-        [effectRateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [effectRateDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+        [effectRateDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:effectRateDisplay];
 
         // Intensity knob
@@ -581,8 +650,8 @@
         [intensityLabel setDrawsBackground:NO];
         [intensityLabel setEditable:NO];
         [intensityLabel setSelectable:NO];
-        [intensityLabel setFont:[NSFont systemFontOfSize:11]];
-        [intensityLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [intensityLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [intensityLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:intensityLabel];
 
         effectIntensityKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(effectsX + 175, effectsY + 25, 50, 50)];
@@ -606,8 +675,8 @@
         [effectIntensityDisplay setDrawsBackground:NO];
         [effectIntensityDisplay setEditable:NO];
         [effectIntensityDisplay setSelectable:NO];
-        [effectIntensityDisplay setFont:[NSFont systemFontOfSize:10]];
-        [effectIntensityDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [effectIntensityDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+        [effectIntensityDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:effectIntensityDisplay];
 
         // ===== ARPEGGIATOR SECTION =====
@@ -622,13 +691,12 @@
         [arpLabel setDrawsBackground:NO];
         [arpLabel setEditable:NO];
         [arpLabel setSelectable:NO];
-        [arpLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-        [arpLabel setTextColor:[NSColor whiteColor]];
+        [arpLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+        [arpLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:arpLabel];
 
         // Enable button
-        arpEnableButton = [[NSButton alloc] initWithFrame:NSMakeRect(arpX + 130, arpY + 130, 80, 20)];
-        [arpEnableButton setButtonType:NSSwitchButton];
+        arpEnableButton = [[MatrixCheckbox alloc] initWithFrame:NSMakeRect(arpX + 130, arpY + 130, 80, 20)];
         [arpEnableButton setTitle:@"Enable"];
         AudioUnitParameterValue initialArpEnable = 0.0f;
         if (mAU) {
@@ -647,11 +715,11 @@
         [rateLabel2 setDrawsBackground:NO];
         [rateLabel2 setEditable:NO];
         [rateLabel2 setSelectable:NO];
-        [rateLabel2 setFont:[NSFont systemFontOfSize:11]];
-        [rateLabel2 setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [rateLabel2 setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [rateLabel2 setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:rateLabel2];
 
-        arpRatePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(arpX + 10, arpY + 80, 80, 25)];
+        arpRatePopup = [[MatrixDropdown alloc] initWithFrame:NSMakeRect(arpX + 10, arpY + 80, 80, 25)];
         [arpRatePopup addItemWithTitle:@"1/4"];
         [arpRatePopup addItemWithTitle:@"1/8"];
         [arpRatePopup addItemWithTitle:@"1/16"];
@@ -673,11 +741,11 @@
         [modeLabel setDrawsBackground:NO];
         [modeLabel setEditable:NO];
         [modeLabel setSelectable:NO];
-        [modeLabel setFont:[NSFont systemFontOfSize:11]];
-        [modeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [modeLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [modeLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:modeLabel];
 
-        arpModePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(arpX + 110, arpY + 80, 90, 25)];
+        arpModePopup = [[MatrixDropdown alloc] initWithFrame:NSMakeRect(arpX + 110, arpY + 80, 90, 25)];
         [arpModePopup addItemWithTitle:@"Up"];
         [arpModePopup addItemWithTitle:@"Down"];
         [arpModePopup addItemWithTitle:@"Up/Down"];
@@ -699,11 +767,11 @@
         [octavesLabel setDrawsBackground:NO];
         [octavesLabel setEditable:NO];
         [octavesLabel setSelectable:NO];
-        [octavesLabel setFont:[NSFont systemFontOfSize:11]];
-        [octavesLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [octavesLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [octavesLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:octavesLabel];
 
-        arpOctavesPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(arpX + 230, arpY + 80, 60, 25)];
+        arpOctavesPopup = [[MatrixDropdown alloc] initWithFrame:NSMakeRect(arpX + 230, arpY + 80, 60, 25)];
         [arpOctavesPopup addItemWithTitle:@"1"];
         [arpOctavesPopup addItemWithTitle:@"2"];
         [arpOctavesPopup addItemWithTitle:@"3"];
@@ -725,8 +793,8 @@
         [gateLabel setDrawsBackground:NO];
         [gateLabel setEditable:NO];
         [gateLabel setSelectable:NO];
-        [gateLabel setFont:[NSFont systemFontOfSize:11]];
-        [gateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+        [gateLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [gateLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
         [self addSubview:gateLabel];
 
         arpGateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(arpX + 145, arpY, 50, 50)];
@@ -749,8 +817,8 @@
         [arpGateDisplay setDrawsBackground:NO];
         [arpGateDisplay setEditable:NO];
         [arpGateDisplay setSelectable:NO];
-        [arpGateDisplay setFont:[NSFont systemFontOfSize:10]];
-        [arpGateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [arpGateDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+        [arpGateDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:arpGateDisplay];
 
         // Start timer to poll for host automation updates
@@ -780,7 +848,7 @@
 
 - (void)createOscillatorSection:(int)oscNum atX:(int)x {
     NSTextField *label, *waveLabel, *octaveLabel, *octaveDisplay, *detuneLabel, *detuneDisplay, *volumeLabel, *volumeDisplay;
-    NSSlider *waveKnob;
+    MatrixSlider *waveKnob;
     RotaryKnob *octaveKnob, *detuneKnob, *volumeKnob;
 
     // Section label
@@ -791,8 +859,8 @@
     [label setDrawsBackground:NO];
     [label setEditable:NO];
     [label setSelectable:NO];
-    [label setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-    [label setTextColor:[NSColor whiteColor]];
+    [label setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+    [label setTextColor:[ClaudeSynthView matrixBrightGreen]];
     [self addSubview:label];
 
     // Waveform section (left side)
@@ -803,19 +871,18 @@
     [waveLabel setDrawsBackground:NO];
     [waveLabel setEditable:NO];
     [waveLabel setSelectable:NO];
-    [waveLabel setFont:[NSFont systemFontOfSize:10]];
-    [waveLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [waveLabel setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [waveLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:waveLabel];
 
     // Add waveform icons
     [self addWaveformIconsAtX:x + 15 baseY:350];
 
     // Vertical slider (right of icons)
-    waveKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 45, 350, 20, 60)];
+    waveKnob = [[MatrixSlider alloc] initWithFrame:NSMakeRect(x + 45, 350, 20, 60)];
     [waveKnob setMinValue:0];
     [waveKnob setMaxValue:3];
     [waveKnob setNumberOfTickMarks:4];
-    [waveKnob setAllowsTickMarkValuesOnly:YES];
 
     AudioUnitParameterValue initialWaveform = 0.0f;
     AudioUnitParameterID waveformParamID = (oscNum == 1) ? kParam_Osc1_Waveform :
@@ -840,8 +907,8 @@
     [octaveLabel setDrawsBackground:NO];
     [octaveLabel setEditable:NO];
     [octaveLabel setSelectable:NO];
-    [octaveLabel setFont:[NSFont systemFontOfSize:10]];
-    [octaveLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [octaveLabel setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [octaveLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:octaveLabel];
 
     octaveKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 355, 50, 50)];
@@ -872,8 +939,8 @@
     [octaveDisplay setDrawsBackground:NO];
     [octaveDisplay setEditable:NO];
     [octaveDisplay setSelectable:NO];
-    [octaveDisplay setFont:[NSFont systemFontOfSize:10]];
-    [octaveDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [octaveDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [octaveDisplay setTextColor:[ClaudeSynthView matrixCyan]];
     [self addSubview:octaveDisplay];
 
     // Detune (bottom left)
@@ -884,8 +951,8 @@
     [detuneLabel setDrawsBackground:NO];
     [detuneLabel setEditable:NO];
     [detuneLabel setSelectable:NO];
-    [detuneLabel setFont:[NSFont systemFontOfSize:10]];
-    [detuneLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [detuneLabel setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [detuneLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:detuneLabel];
 
     detuneKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 245, 50, 50)];
@@ -915,8 +982,8 @@
     [detuneDisplay setDrawsBackground:NO];
     [detuneDisplay setEditable:NO];
     [detuneDisplay setSelectable:NO];
-    [detuneDisplay setFont:[NSFont systemFontOfSize:9]];
-    [detuneDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [detuneDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+    [detuneDisplay setTextColor:[ClaudeSynthView matrixCyan]];
     [self addSubview:detuneDisplay];
 
     // Volume (bottom right)
@@ -927,8 +994,8 @@
     [volumeLabel setDrawsBackground:NO];
     [volumeLabel setEditable:NO];
     [volumeLabel setSelectable:NO];
-    [volumeLabel setFont:[NSFont systemFontOfSize:10]];
-    [volumeLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [volumeLabel setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [volumeLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:volumeLabel];
 
     volumeKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 100, 245, 50, 50)];
@@ -957,8 +1024,8 @@
     [volumeDisplay setDrawsBackground:NO];
     [volumeDisplay setEditable:NO];
     [volumeDisplay setSelectable:NO];
-    [volumeDisplay setFont:[NSFont systemFontOfSize:9]];
-    [volumeDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [volumeDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+    [volumeDisplay setTextColor:[ClaudeSynthView matrixCyan]];
     [self addSubview:volumeDisplay];
 
     // Store references based on oscillator number
@@ -1013,8 +1080,8 @@
     [label setDrawsBackground:NO];
     [label setEditable:NO];
     [label setSelectable:NO];
-    [label setFont:[NSFont systemFontOfSize:12 weight:NSFontWeightBold]];
-    [label setTextColor:[NSColor whiteColor]];
+    [label setFont:[ClaudeSynthView matrixBoldFontOfSize:12]];
+    [label setTextColor:[ClaudeSynthView matrixBrightGreen]];
     [self addSubview:label];
 
     // Waveform selector
@@ -1025,8 +1092,8 @@
     [waveformLabel setDrawsBackground:NO];
     [waveformLabel setEditable:NO];
     [waveformLabel setSelectable:NO];
-    [waveformLabel setFont:[NSFont systemFontOfSize:10]];
-    [waveformLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [waveformLabel setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [waveformLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:waveformLabel];
 
     // Add small waveform icons
@@ -1040,11 +1107,10 @@
         [self addSubview:iconView];
     }
 
-    NSSlider *waveformKnob = [[NSSlider alloc] initWithFrame:NSMakeRect(x + 35, 370, 20, 45)];
+    MatrixSlider *waveformKnob = [[MatrixSlider alloc] initWithFrame:NSMakeRect(x + 35, 370, 20, 45)];
     [waveformKnob setMinValue:0];
     [waveformKnob setMaxValue:3];
     [waveformKnob setNumberOfTickMarks:4];
-    [waveformKnob setAllowsTickMarkValuesOnly:YES];
 
     AudioUnitParameterID waveformParamID = (lfoNum == 1) ? kParam_LFO1_Waveform : kParam_LFO2_Waveform;
     AudioUnitParameterValue initialWaveform = 0.0f;
@@ -1071,8 +1137,8 @@
     [rateLabel setDrawsBackground:NO];
     [rateLabel setEditable:NO];
     [rateLabel setSelectable:NO];
-    [rateLabel setFont:[NSFont systemFontOfSize:10]];
-    [rateLabel setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [rateLabel setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [rateLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:rateLabel];
 
     RotaryKnob *rateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 275, 50, 50)];
@@ -1094,8 +1160,8 @@
     [rateDisplay setDrawsBackground:NO];
     [rateDisplay setEditable:NO];
     [rateDisplay setSelectable:NO];
-    [rateDisplay setFont:[NSFont systemFontOfSize:10]];
-    [rateDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+    [rateDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [rateDisplay setTextColor:[ClaudeSynthView matrixCyan]];
     [self addSubview:rateDisplay];
 
     if (lfoNum == 1) {
@@ -1120,8 +1186,8 @@
     [matrixLabel setDrawsBackground:NO];
     [matrixLabel setEditable:NO];
     [matrixLabel setSelectable:NO];
-    [matrixLabel setFont:[NSFont systemFontOfSize:14 weight:NSFontWeightBold]];
-    [matrixLabel setTextColor:[NSColor whiteColor]];
+    [matrixLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+    [matrixLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
     [self addSubview:matrixLabel];
 
     // Column headers
@@ -1132,8 +1198,8 @@
     [sourceHeader setDrawsBackground:NO];
     [sourceHeader setEditable:NO];
     [sourceHeader setSelectable:NO];
-    [sourceHeader setFont:[NSFont systemFontOfSize:11 weight:NSFontWeightMedium]];
-    [sourceHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [sourceHeader setFont:[ClaudeSynthView matrixBoldFontOfSize:11]];
+    [sourceHeader setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:sourceHeader];
 
     NSTextField *destHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(240, 142, 200, 16)];
@@ -1143,8 +1209,8 @@
     [destHeader setDrawsBackground:NO];
     [destHeader setEditable:NO];
     [destHeader setSelectable:NO];
-    [destHeader setFont:[NSFont systemFontOfSize:11 weight:NSFontWeightMedium]];
-    [destHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [destHeader setFont:[ClaudeSynthView matrixBoldFontOfSize:11]];
+    [destHeader setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:destHeader];
 
     NSTextField *intensityHeader = [[NSTextField alloc] initWithFrame:NSMakeRect(450, 142, 100, 16)];
@@ -1154,8 +1220,8 @@
     [intensityHeader setDrawsBackground:NO];
     [intensityHeader setEditable:NO];
     [intensityHeader setSelectable:NO];
-    [intensityHeader setFont:[NSFont systemFontOfSize:11 weight:NSFontWeightMedium]];
-    [intensityHeader setTextColor:[NSColor colorWithWhite:0.7 alpha:1.0]];
+    [intensityHeader setFont:[ClaudeSynthView matrixBoldFontOfSize:11]];
+    [intensityHeader setTextColor:[ClaudeSynthView matrixMediumGreen]];
     [self addSubview:intensityHeader];
 
     // Create 4 modulation slots with tighter spacing
@@ -1170,12 +1236,12 @@
         [slotLabel setDrawsBackground:NO];
         [slotLabel setEditable:NO];
         [slotLabel setSelectable:NO];
-        [slotLabel setFont:[NSFont systemFontOfSize:11]];
-        [slotLabel setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [slotLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+        [slotLabel setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:slotLabel];
 
         // Source popup
-        NSPopUpButton *sourcePopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(80, yPos, 150, 25)];
+        MatrixDropdown *sourcePopup = [[MatrixDropdown alloc] initWithFrame:NSMakeRect(80, yPos, 150, 25)];
         [sourcePopup addItemWithTitle:@"None"];
         [sourcePopup addItemWithTitle:@"LFO 1"];
         [sourcePopup addItemWithTitle:@"LFO 2"];
@@ -1193,7 +1259,7 @@
         [self addSubview:sourcePopup];
 
         // Destination popup
-        NSPopUpButton *destPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(240, yPos, 200, 25)];
+        MatrixDropdown *destPopup = [[MatrixDropdown alloc] initWithFrame:NSMakeRect(240, yPos, 200, 25)];
         [destPopup addItemWithTitle:@"None"];
         [destPopup addItemWithTitle:@"Filter Cutoff"];
         [destPopup addItemWithTitle:@"Filter Resonance"];
@@ -1241,8 +1307,8 @@
         [intensityDisplay setDrawsBackground:NO];
         [intensityDisplay setEditable:NO];
         [intensityDisplay setSelectable:NO];
-        [intensityDisplay setFont:[NSFont systemFontOfSize:9]];
-        [intensityDisplay setTextColor:[NSColor colorWithWhite:0.6 alpha:1.0]];
+        [intensityDisplay setFont:[ClaudeSynthView matrixFontOfSize:9]];
+        [intensityDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [intensityDisplay setTag:1000 + slot];  // Use unique tag base to avoid conflicts
         [self addSubview:intensityDisplay];
     }
@@ -1497,7 +1563,7 @@
 
 // Modulation Matrix
 - (void)modSourceChanged:(id)sender {
-    NSPopUpButton *popup = (NSPopUpButton *)sender;
+    MatrixDropdown *popup = (MatrixDropdown *)sender;
     int slot = (int)[popup tag];
     int value = (int)[popup indexOfSelectedItem];
     if (mAU) {
@@ -1507,7 +1573,7 @@
 }
 
 - (void)modDestChanged:(id)sender {
-    NSPopUpButton *popup = (NSPopUpButton *)sender;
+    MatrixDropdown *popup = (MatrixDropdown *)sender;
     int slot = (int)[popup tag];
     int value = (int)[popup indexOfSelectedItem];
     if (mAU) {
