@@ -605,7 +605,7 @@
 
         // ===== EFFECTS SECTION =====
         // Place in bottom section, to the right of modulation matrix
-        int effectsX = 480;
+        int effectsX = 270;
         int effectsY = 10;
 
         // Section label
@@ -722,7 +722,7 @@
         [self addSubview:effectIntensityDisplay];
 
         // ===== ARPEGGIATOR SECTION =====
-        int arpX = 700;
+        int arpX = 530;
         int arpY = 10;
 
         // Section label
