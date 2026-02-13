@@ -1154,7 +1154,7 @@
 
     RotaryKnob *rateKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(x + 20, 275, 50, 50)];
     [rateKnob setMinValue:0.1];
-    [rateKnob setMaxValue:20.0];
+    [rateKnob setMaxValue:10.0];
 
     AudioUnitParameterID rateParamID = (lfoNum == 1) ? kParam_LFO1_Rate : kParam_LFO2_Rate;
     AudioUnitParameterValue initialRate = (lfoNum == 1) ? 5.0f : 3.0f;

@@ -693,7 +693,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_LFO1_Rate:
                         info->unit = kAudioUnitParameterUnit_Hertz;
                         info->minValue = 0.1f;
-                        info->maxValue = 20.0f;
+                        info->maxValue = 10.0f;
                         info->defaultValue = 5.0f;
                         info->cfNameString = CFSTR("LFO 1 Rate");
                         break;
@@ -725,7 +725,7 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                     case kParam_LFO2_Rate:
                         info->unit = kAudioUnitParameterUnit_Hertz;
                         info->minValue = 0.1f;
-                        info->maxValue = 20.0f;
+                        info->maxValue = 10.0f;
                         info->defaultValue = 3.0f;
                         info->cfNameString = CFSTR("LFO 2 Rate");
                         break;
