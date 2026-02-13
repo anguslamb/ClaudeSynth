@@ -102,20 +102,51 @@
     pthread_mutex_lock(&bufferMutex);
 
     if (writeIndex > 0) {
-        // Find trigger point (rising edge zero-crossing) for stable display
-        int triggerIndex = 0;
-        int searchStart = writeIndex - bufferSize / 4;  // Look in recent quarter of buffer
-        if (searchStart < 0) searchStart += bufferSize;
-
-        for (int i = 0; i < bufferSize / 4; i++) {
-            int idx = (searchStart + i) % bufferSize;
-            int nextIdx = (idx + 1) % bufferSize;
-
-            // Find rising edge zero-crossing
-            if (buffer[idx] <= 0.0f && buffer[nextIdx] > 0.0f) {
-                triggerIndex = nextIdx;
-                break;
+        // Check if there's a meaningful signal in the buffer
+        float maxLevel = 0.0f;
+        for (int i = 0; i < bufferSize; i++) {
+            float absLevel = fabsf(buffer[i]);
+            if (absLevel > maxLevel) {
+                maxLevel = absLevel;
             }
+        }
+
+        int triggerIndex = 0;
+
+        // Only use trigger if signal is above threshold (0.01 = -40dB)
+        if (maxLevel > 0.01f) {
+            // Find trigger point (rising edge zero-crossing) for stable display
+            int searchStart = writeIndex - bufferSize / 4;  // Look in recent quarter of buffer
+            if (searchStart < 0) searchStart += bufferSize;
+
+            bool foundTrigger = false;
+            for (int i = 0; i < bufferSize / 4; i++) {
+                int idx = (searchStart + i) % bufferSize;
+                int nextIdx = (idx + 1) % bufferSize;
+
+                // Find rising edge zero-crossing with sufficient amplitude
+                if (buffer[idx] <= 0.0f && buffer[nextIdx] > 0.0f) {
+                    // Check if this crossing has enough amplitude nearby
+                    float peakLevel = 0.0f;
+                    for (int j = 0; j < 20 && nextIdx + j < bufferSize; j++) {
+                        peakLevel = fmaxf(peakLevel, fabsf(buffer[(nextIdx + j) % bufferSize]));
+                    }
+
+                    if (peakLevel > 0.02f) {  // Require minimum amplitude near crossing
+                        triggerIndex = nextIdx;
+                        foundTrigger = true;
+                        break;
+                    }
+                }
+            }
+
+            // If no good trigger found, use the start position
+            if (!foundTrigger) {
+                triggerIndex = 0;
+            }
+        } else {
+            // Signal too quiet - use fixed position
+            triggerIndex = 0;
         }
 
         // Draw waveform starting from trigger point
