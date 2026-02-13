@@ -102,6 +102,23 @@
     pthread_mutex_lock(&bufferMutex);
 
     if (writeIndex > 0) {
+        // Find trigger point (rising edge zero-crossing) for stable display
+        int triggerIndex = 0;
+        int searchStart = writeIndex - bufferSize / 4;  // Look in recent quarter of buffer
+        if (searchStart < 0) searchStart += bufferSize;
+
+        for (int i = 0; i < bufferSize / 4; i++) {
+            int idx = (searchStart + i) % bufferSize;
+            int nextIdx = (idx + 1) % bufferSize;
+
+            // Find rising edge zero-crossing
+            if (buffer[idx] <= 0.0f && buffer[nextIdx] > 0.0f) {
+                triggerIndex = nextIdx;
+                break;
+            }
+        }
+
+        // Draw waveform starting from trigger point
         NSBezierPath *waveform = [NSBezierPath bezierPath];
         [waveform setLineWidth:1.5];
         [waveform setLineCapStyle:NSLineCapStyleRound];
@@ -112,7 +129,7 @@
 
         BOOL firstPoint = YES;
         for (int i = 0; i < bufferSize; i++) {
-            int index = (writeIndex + i) % bufferSize;
+            int index = (triggerIndex + i) % bufferSize;
             float sample = buffer[index];
 
             CGFloat x = i * xStep;
