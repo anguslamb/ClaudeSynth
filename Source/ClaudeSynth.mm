@@ -3,6 +3,7 @@
 #include "ClaudeSynthLogger.h"
 #include <AudioToolbox/AudioToolbox.h>
 #include <string.h>
+#import "MatrixOscilloscope.h"
 
 // Forward declarations
 static OSStatus ClaudeSynth_Open(void *self, AudioUnit inUnit);
@@ -180,6 +181,9 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
     data->hostTempo = 120.0;       // Default tempo
     data->currentArpNote = -1;
     data->arpNoteActive = false;
+
+    // Initialize oscilloscope pointer
+    data->oscilloscope = NULL;
 
     ClaudeLog("Factory: initialized parameters");
 
@@ -1085,6 +1089,13 @@ static OSStatus ClaudeSynth_SetProperty(void *self,
         case 0x3F5: // Unknown parameter-related
             return noErr;
 
+        case kClaudeSynthProperty_Oscilloscope:
+            if (inDataSize < sizeof(void *))
+                return kAudioUnitErr_InvalidParameter;
+            data->oscilloscope = *(void * const *)inData;
+            ClaudeLog("SetProperty: oscilloscope pointer set to %p", data->oscilloscope);
+            return noErr;
+
         default:
             ClaudeLog("SetProperty: UNKNOWN property 0x%X", (unsigned int)inID);
             return kAudioUnitErr_InvalidProperty;
@@ -1714,6 +1725,12 @@ static OSStatus ClaudeSynth_Render(void *self,
         if (right != left) {
             right[frame] = volumedSample;
         }
+    }
+
+    // Push samples to oscilloscope for visualization
+    if (data->oscilloscope) {
+        MatrixOscilloscope *scope = (__bridge MatrixOscilloscope *)data->oscilloscope;
+        [scope pushSamples:left count:(int)inNumberFrames];
     }
 
     return noErr;

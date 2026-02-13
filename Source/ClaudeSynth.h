@@ -6,6 +6,9 @@
 
 #define CLAUDESYNTH_VERSION "1.0.0"
 
+// Custom property for oscilloscope
+#define kClaudeSynthProperty_Oscilloscope 65536
+
 static const int kNumVoices = 16;
 static const int kNumModSlots = 4;
 
@@ -204,6 +207,9 @@ struct ClaudeSynthData {
     double hostTempo;    // BPM from host
     int currentArpNote;  // Currently playing arp note (-1 if none)
     bool arpNoteActive;  // Is an arp note currently playing
+
+    // Oscilloscope (stored as void* to avoid Objective-C in header)
+    void *oscilloscope;
 };
 
 // Helper functions

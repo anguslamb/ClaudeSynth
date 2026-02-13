@@ -26,7 +26,7 @@ FRAMEWORKS = -framework AudioUnit \
              -framework QuartzCore
 
 # Source files
-SOURCES = Source/ClaudeSynth.cpp \
+SOURCES = Source/ClaudeSynth.mm \
           Source/ClaudeSynthView.mm \
           Source/RotaryKnob.mm \
           Source/DiscreteKnob.mm \
@@ -34,7 +34,8 @@ SOURCES = Source/ClaudeSynth.cpp \
           Source/MatrixDropdown.mm \
           Source/MatrixCheckbox.mm \
           Source/MatrixSlider.mm \
-          Source/MatrixLED.mm
+          Source/MatrixLED.mm \
+          Source/MatrixOscilloscope.mm
 
 # Bundle structure
 BUNDLE_DIR = build/$(PLUGIN_NAME).component

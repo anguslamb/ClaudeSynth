@@ -4,6 +4,7 @@
 #import "MatrixCheckbox.h"
 #import "MatrixSlider.h"
 #import "MatrixLED.h"
+#import "MatrixOscilloscope.h"
 
 // Forward declare ClaudeSynthView's color methods for use in WaveformIconView
 @interface ClaudeSynthView (MatrixTheme)
@@ -821,6 +822,15 @@
         [arpGateDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
         [arpGateDisplay setTextColor:[ClaudeSynthView matrixCyan]];
         [self addSubview:arpGateDisplay];
+
+        // ===== OSCILLOSCOPE =====
+        // Position in bottom right corner
+        oscilloscope = [[MatrixOscilloscope alloc] initWithFrame:NSMakeRect(1150, 10, 280, 150)];
+        [self addSubview:oscilloscope];
+
+        // Set oscilloscope pointer in audio unit
+        void *oscopePtr = (__bridge void *)oscilloscope;
+        AudioUnitSetProperty(mAU, kClaudeSynthProperty_Oscilloscope, kAudioUnitScope_Global, 0, &oscopePtr, sizeof(void *));
 
         // Start timer to poll for host automation updates
         updateTimer = [NSTimer scheduledTimerWithTimeInterval:0.1

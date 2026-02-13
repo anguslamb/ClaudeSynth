@@ -8,6 +8,7 @@
 #import "MatrixCheckbox.h"
 #import "MatrixSlider.h"
 #import "MatrixLED.h"
+#import "MatrixOscilloscope.h"
 
 @interface ClaudeSynthView : NSView
 {
@@ -118,6 +119,9 @@
     MatrixDropdown *arpOctavesPopup;
     RotaryKnob *arpGateKnob;
     NSTextField *arpGateDisplay;
+
+    // Oscilloscope
+    MatrixOscilloscope *oscilloscope;
 }
 
 - (id)initWithFrame:(NSRect)frame audioUnit:(AudioUnit)au;
