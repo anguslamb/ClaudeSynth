@@ -1593,6 +1593,7 @@ static OSStatus ClaudeSynth_Render(void *self,
                         voice->NoteOff();
                     }
                 }
+                data->arpNoteActive = false;  // Mark note as inactive after gate closes
             }
         } else if (data->arpEnable && data->heldNotesCount == 0) {
             // Stop current arp note when all notes are released
@@ -1828,8 +1829,17 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                             data->heldNotesCount--;
                             ClaudeLog("  -> Removed note %d from arpeggiator (count=%d)", noteNumber, data->heldNotesCount);
 
+                            // If all notes released, stop any currently playing arp note
+                            if (data->heldNotesCount == 0 && data->arpNoteActive && data->currentArpNote >= 0) {
+                                SynthVoice *voice = FindVoiceForNote(data, data->currentArpNote);
+                                if (voice) {
+                                    voice->NoteOff();
+                                    ClaudeLog("  -> Stopped arp note %d (all notes released)", data->currentArpNote);
+                                }
+                                data->arpNoteActive = false;
+                            }
                             // If this was the currently playing arp note, stop it
-                            if (data->currentArpNote == noteNumber && data->arpNoteActive) {
+                            else if (data->currentArpNote == noteNumber && data->arpNoteActive) {
                                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                                 if (voice) {
                                     voice->NoteOff();
@@ -1876,8 +1886,17 @@ static OSStatus ClaudeSynth_MIDIEvent(void *self,
                             data->heldNotesCount--;
                             ClaudeLog("  -> Removed note %d from arpeggiator (count=%d)", noteNumber, data->heldNotesCount);
 
+                            // If all notes released, stop any currently playing arp note
+                            if (data->heldNotesCount == 0 && data->arpNoteActive && data->currentArpNote >= 0) {
+                                SynthVoice *voice = FindVoiceForNote(data, data->currentArpNote);
+                                if (voice) {
+                                    voice->NoteOff();
+                                    ClaudeLog("  -> Stopped arp note %d (all notes released)", data->currentArpNote);
+                                }
+                                data->arpNoteActive = false;
+                            }
                             // If this was the currently playing arp note, stop it
-                            if (data->currentArpNote == noteNumber && data->arpNoteActive) {
+                            else if (data->currentArpNote == noteNumber && data->arpNoteActive) {
                                 SynthVoice *voice = FindVoiceForNote(data, noteNumber);
                                 if (voice) {
                                     voice->NoteOff();
