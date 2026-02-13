@@ -7,6 +7,7 @@
 #import "MatrixDropdown.h"
 #import "MatrixCheckbox.h"
 #import "MatrixSlider.h"
+#import "MatrixLED.h"
 
 @interface ClaudeSynthView : NSView
 {
@@ -88,11 +89,17 @@
     MatrixSlider *lfoWaveformKnob;
     RotaryKnob *lfoRateKnob;
     NSTextField *lfoRateDisplay;
+    MatrixCheckbox *lfo1TempoSyncCheckbox;
+    MatrixDropdown *lfo1NoteDivisionDropdown;
+    MatrixLED *lfo1LED;
 
     // LFO 2
     MatrixSlider *lfo2WaveformKnob;
     RotaryKnob *lfo2RateKnob;
     NSTextField *lfo2RateDisplay;
+    MatrixCheckbox *lfo2TempoSyncCheckbox;
+    MatrixDropdown *lfo2NoteDivisionDropdown;
+    MatrixLED *lfo2LED;
 
     NSTextField *titleLabel;
     NSTimer *updateTimer;
@@ -133,8 +140,12 @@
 - (void)filterEnvelopeChanged:(id)sender;
 - (void)lfo1WaveformChanged:(id)sender;
 - (void)lfo1RateChanged:(id)sender;
+- (void)lfo1TempoSyncChanged:(id)sender;
+- (void)lfo1NoteDivisionChanged:(id)sender;
 - (void)lfo2WaveformChanged:(id)sender;
 - (void)lfo2RateChanged:(id)sender;
+- (void)lfo2TempoSyncChanged:(id)sender;
+- (void)lfo2NoteDivisionChanged:(id)sender;
 - (void)modSourceChanged:(id)sender;
 - (void)modDestChanged:(id)sender;
 - (void)modIntensityChanged:(id)sender;

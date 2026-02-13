@@ -67,10 +67,14 @@ enum {
     // LFO 1
     kParam_LFO1_Waveform = 23,
     kParam_LFO1_Rate = 24,
+    kParam_LFO1_TempoSync = 47,      // 0=Off, 1=On
+    kParam_LFO1_NoteDivision = 48,   // 0-11 (note divisions when tempo synced)
 
     // LFO 2
     kParam_LFO2_Waveform = 25,
     kParam_LFO2_Rate = 26,
+    kParam_LFO2_TempoSync = 49,      // 0=Off, 1=On
+    kParam_LFO2_NoteDivision = 50,   // 0-11 (note divisions when tempo synced)
 
     // Modulation Matrix (4 slots x 3 params each)
     kParam_ModSlot1_Source = 27,
@@ -99,7 +103,11 @@ enum {
     kParam_ArpRate = 43,         // 0=1/4, 1=1/8, 2=1/16, 3=1/32
     kParam_ArpMode = 44,         // 0=Up, 1=Down, 2=UpDown, 3=Random
     kParam_ArpOctaves = 45,      // 1-4 octaves
-    kParam_ArpGate = 46          // 0.0 to 1.0 (gate length)
+    kParam_ArpGate = 46,         // 0.0 to 1.0 (gate length)
+
+    // LFO Output (read-only for UI indicators)
+    kParam_LFO1_Output = 51,     // 0.0 to 1.0 (current LFO value for LED)
+    kParam_LFO2_Output = 52      // 0.0 to 1.0 (current LFO value for LED)
 };
 
 struct OscillatorSettings {
@@ -141,11 +149,17 @@ struct ClaudeSynthData {
     int lfo1Waveform;
     float lfo1Rate;
     double lfo1Phase;
+    bool lfo1TempoSync;
+    int lfo1NoteDivision;
+    float lfo1Output;  // Current LFO value for indicator
 
     // LFO 2
     int lfo2Waveform;
     float lfo2Rate;
     double lfo2Phase;
+    bool lfo2TempoSync;
+    int lfo2NoteDivision;
+    float lfo2Output;  // Current LFO value for indicator
 
     // Modulation Matrix
     struct ModSlot {

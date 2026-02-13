@@ -125,11 +125,17 @@ extern "C" __attribute__((visibility("default"))) void *ClaudeSynthFactory(const
     // LFO 1 defaults
     data->lfo1Waveform = 0;     // Sine
     data->lfo1Rate = 5.0f;      // 5 Hz
+    data->lfo1TempoSync = false;
+    data->lfo1NoteDivision = 2; // 1/8 note
+    data->lfo1Output = 0.0f;
     data->lfo1Phase = 0.0;
 
     // LFO 2 defaults
     data->lfo2Waveform = 0;     // Sine
     data->lfo2Rate = 3.0f;      // 3 Hz
+    data->lfo2TempoSync = false;
+    data->lfo2NoteDivision = 2; // 1/8 note
+    data->lfo2Output = 0.0f;
     data->lfo2Phase = 0.0;
 
     // Initialize modulation matrix slots to empty
@@ -688,6 +694,22 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->cfNameString = CFSTR("LFO 1 Rate");
                         break;
 
+                    case kParam_LFO1_TempoSync:
+                        info->unit = kAudioUnitParameterUnit_Boolean;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("LFO 1 Tempo Sync");
+                        break;
+
+                    case kParam_LFO1_NoteDivision:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 14.0f;
+                        info->defaultValue = 2.0f;  // 1/8 note
+                        info->cfNameString = CFSTR("LFO 1 Note Division");
+                        break;
+
                     case kParam_LFO2_Waveform:
                         info->unit = kAudioUnitParameterUnit_Indexed;
                         info->minValue = 0.0f;
@@ -702,6 +724,22 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->maxValue = 20.0f;
                         info->defaultValue = 3.0f;
                         info->cfNameString = CFSTR("LFO 2 Rate");
+                        break;
+
+                    case kParam_LFO2_TempoSync:
+                        info->unit = kAudioUnitParameterUnit_Boolean;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->cfNameString = CFSTR("LFO 2 Tempo Sync");
+                        break;
+
+                    case kParam_LFO2_NoteDivision:
+                        info->unit = kAudioUnitParameterUnit_Indexed;
+                        info->minValue = 0.0f;
+                        info->maxValue = 14.0f;
+                        info->defaultValue = 2.0f;  // 1/8 note
+                        info->cfNameString = CFSTR("LFO 2 Note Division");
                         break;
 
                     // Modulation Matrix Slot 1
@@ -866,6 +904,24 @@ static OSStatus ClaudeSynth_GetProperty(void *self,
                         info->maxValue = 1.0f;
                         info->defaultValue = 0.9f;
                         info->cfNameString = CFSTR("Arpeggiator Gate");
+                        break;
+
+                    case kParam_LFO1_Output:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->flags = kAudioUnitParameterFlag_IsReadable;  // Read-only
+                        info->cfNameString = CFSTR("LFO 1 Output");
+                        break;
+
+                    case kParam_LFO2_Output:
+                        info->unit = kAudioUnitParameterUnit_Generic;
+                        info->minValue = 0.0f;
+                        info->maxValue = 1.0f;
+                        info->defaultValue = 0.0f;
+                        info->flags = kAudioUnitParameterFlag_IsReadable;  // Read-only
+                        info->cfNameString = CFSTR("LFO 2 Output");
                         break;
 
                     default:
@@ -1305,6 +1361,36 @@ static int GetArpNote(ClaudeSynthData *data) {
     return note;
 }
 
+// Calculate LFO frequency from note division and tempo
+// Note divisions: 0=1/32, 1=1/16, 2=1/8, 3=1/4, 4=1/2, 5=1/1,
+//                 6=1/32T, 7=1/16T, 8=1/8T, 9=1/4T, 10=1/2T,
+//                 11=1/16., 12=1/8., 13=1/4., 14=1/2.
+static double GetLFOFrequencyFromDivision(int division, double tempo) {
+    double beatsPerSecond = tempo / 60.0;
+    double cyclesPerBeat = 1.0;
+
+    switch (division) {
+        case 0: cyclesPerBeat = 8.0; break;      // 1/32
+        case 1: cyclesPerBeat = 4.0; break;      // 1/16
+        case 2: cyclesPerBeat = 2.0; break;      // 1/8
+        case 3: cyclesPerBeat = 1.0; break;      // 1/4
+        case 4: cyclesPerBeat = 0.5; break;      // 1/2
+        case 5: cyclesPerBeat = 0.25; break;     // 1/1 (whole note)
+        case 6: cyclesPerBeat = 12.0; break;     // 1/32 triplet
+        case 7: cyclesPerBeat = 6.0; break;      // 1/16 triplet
+        case 8: cyclesPerBeat = 3.0; break;      // 1/8 triplet
+        case 9: cyclesPerBeat = 1.5; break;      // 1/4 triplet
+        case 10: cyclesPerBeat = 0.75; break;    // 1/2 triplet
+        case 11: cyclesPerBeat = 6.0; break;     // 1/16 dotted
+        case 12: cyclesPerBeat = 3.0; break;     // 1/8 dotted
+        case 13: cyclesPerBeat = 1.5; break;     // 1/4 dotted
+        case 14: cyclesPerBeat = 0.75; break;    // 1/2 dotted
+        default: cyclesPerBeat = 1.0; break;
+    }
+
+    return beatsPerSecond * cyclesPerBeat;
+}
+
 static OSStatus ClaudeSynth_Render(void *self,
                                     AudioUnitRenderActionFlags *ioActionFlags,
                                     const AudioTimeStamp *inTimeStamp,
@@ -1346,7 +1432,11 @@ static OSStatus ClaudeSynth_Render(void *self,
     // Render all active voices
     for (UInt32 frame = 0; frame < inNumberFrames; frame++) {
         // Calculate global LFO 1 value for this frame
-        double lfo1PhaseIncrement = (data->lfo1Rate / data->sampleRate) * 2.0 * M_PI;
+        double lfo1Frequency = data->lfo1Rate;
+        if (data->lfo1TempoSync) {
+            lfo1Frequency = GetLFOFrequencyFromDivision(data->lfo1NoteDivision, data->hostTempo);
+        }
+        double lfo1PhaseIncrement = (lfo1Frequency / data->sampleRate) * 2.0 * M_PI;
         data->lfo1Phase += lfo1PhaseIncrement;
         if (data->lfo1Phase >= 2.0 * M_PI) {
             data->lfo1Phase -= 2.0 * M_PI;
@@ -1372,8 +1462,15 @@ static OSStatus ClaudeSynth_Render(void *self,
                 break;
         }
 
+        // Store LFO 1 output for indicator (convert from -1..1 to 0..1)
+        data->lfo1Output = (lfo1Value + 1.0f) * 0.5f;
+
         // Calculate global LFO 2 value for this frame
-        double lfo2PhaseIncrement = (data->lfo2Rate / data->sampleRate) * 2.0 * M_PI;
+        double lfo2Frequency = data->lfo2Rate;
+        if (data->lfo2TempoSync) {
+            lfo2Frequency = GetLFOFrequencyFromDivision(data->lfo2NoteDivision, data->hostTempo);
+        }
+        double lfo2PhaseIncrement = (lfo2Frequency / data->sampleRate) * 2.0 * M_PI;
         data->lfo2Phase += lfo2PhaseIncrement;
         if (data->lfo2Phase >= 2.0 * M_PI) {
             data->lfo2Phase -= 2.0 * M_PI;
@@ -1398,6 +1495,9 @@ static OSStatus ClaudeSynth_Render(void *self,
                            (-4.0f * normalizedPhase2 + 3.0f);
                 break;
         }
+
+        // Store LFO 2 output for indicator (convert from -1..1 to 0..1)
+        data->lfo2Output = (lfo2Value + 1.0f) * 0.5f;
 
         // Update global filter envelope (applies to all voices)
         UpdateGlobalFilterEnvelope(data);
@@ -1966,6 +2066,14 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
             data->lfo1Rate = inValue;
             return noErr;
 
+        case kParam_LFO1_TempoSync:
+            data->lfo1TempoSync = (inValue > 0.5f);
+            return noErr;
+
+        case kParam_LFO1_NoteDivision:
+            data->lfo1NoteDivision = (int)inValue;
+            return noErr;
+
         // LFO 2
         case kParam_LFO2_Waveform:
             data->lfo2Waveform = (int)inValue;
@@ -1973,6 +2081,14 @@ static OSStatus ClaudeSynth_SetParameter(void *self, AudioUnitParameterID inID,
 
         case kParam_LFO2_Rate:
             data->lfo2Rate = inValue;
+            return noErr;
+
+        case kParam_LFO2_TempoSync:
+            data->lfo2TempoSync = (inValue > 0.5f);
+            return noErr;
+
+        case kParam_LFO2_NoteDivision:
+            data->lfo2NoteDivision = (int)inValue;
             return noErr;
 
         // Modulation Matrix Slot 1
@@ -2182,6 +2298,14 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
             *outValue = data->lfo1Rate;
             return noErr;
 
+        case kParam_LFO1_TempoSync:
+            *outValue = data->lfo1TempoSync ? 1.0f : 0.0f;
+            return noErr;
+
+        case kParam_LFO1_NoteDivision:
+            *outValue = (float)data->lfo1NoteDivision;
+            return noErr;
+
         // LFO 2
         case kParam_LFO2_Waveform:
             *outValue = (float)data->lfo2Waveform;
@@ -2189,6 +2313,14 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
 
         case kParam_LFO2_Rate:
             *outValue = data->lfo2Rate;
+            return noErr;
+
+        case kParam_LFO2_TempoSync:
+            *outValue = data->lfo2TempoSync ? 1.0f : 0.0f;
+            return noErr;
+
+        case kParam_LFO2_NoteDivision:
+            *outValue = (float)data->lfo2NoteDivision;
             return noErr;
 
         // Modulation Matrix Slot 1
@@ -2273,6 +2405,14 @@ static OSStatus ClaudeSynth_GetParameter(void *self, AudioUnitParameterID inID,
 
         case kParam_ArpGate:
             *outValue = data->arpGate;
+            return noErr;
+
+        case kParam_LFO1_Output:
+            *outValue = data->lfo1Output;
+            return noErr;
+
+        case kParam_LFO2_Output:
+            *outValue = data->lfo2Output;
             return noErr;
 
         default:

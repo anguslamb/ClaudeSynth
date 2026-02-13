@@ -3,6 +3,7 @@
 #import "MatrixDropdown.h"
 #import "MatrixCheckbox.h"
 #import "MatrixSlider.h"
+#import "MatrixLED.h"
 
 // Forward declare ClaudeSynthView's color methods for use in WaveformIconView
 @interface ClaudeSynthView (MatrixTheme)
@@ -1130,9 +1131,9 @@
     [self addSubview:waveformKnob];
 
     // Rate knob
-    NSTextField *rateLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 5, 335, 80, 16)];
+    NSTextField *rateLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 5, 335, 35, 16)];
     [rateLabel setStringValue:@"Rate"];
-    [rateLabel setAlignment:NSTextAlignmentCenter];
+    [rateLabel setAlignment:NSTextAlignmentLeft];
     [rateLabel setBezeled:NO];
     [rateLabel setDrawsBackground:NO];
     [rateLabel setEditable:NO];
@@ -1175,6 +1176,68 @@
     }
     [rateKnob setContinuous:YES];
     [self addSubview:rateKnob];
+
+    // Tempo sync checkbox
+    MatrixCheckbox *tempoSyncCheckbox = [[MatrixCheckbox alloc] initWithFrame:NSMakeRect(x + 5, 230, 80, 18)];
+    [tempoSyncCheckbox setTitle:@"Sync"];
+
+    AudioUnitParameterID tempoSyncParamID = (lfoNum == 1) ? kParam_LFO1_TempoSync : kParam_LFO2_TempoSync;
+    AudioUnitParameterValue initialTempoSync = 0.0f;
+    if (mAU) {
+        AudioUnitGetParameter(mAU, tempoSyncParamID, kAudioUnitScope_Global, 0, &initialTempoSync);
+    }
+    [tempoSyncCheckbox setState:(initialTempoSync > 0.5f) ? NSControlStateValueOn : NSControlStateValueOff];
+    [tempoSyncCheckbox setTarget:self];
+
+    // Note division dropdown
+    MatrixDropdown *noteDivisionDropdown = [[MatrixDropdown alloc] initWithFrame:NSMakeRect(x + 5, 205, 80, 20)];
+    [noteDivisionDropdown addItemWithTitle:@"1/32"];
+    [noteDivisionDropdown addItemWithTitle:@"1/16"];
+    [noteDivisionDropdown addItemWithTitle:@"1/8"];
+    [noteDivisionDropdown addItemWithTitle:@"1/4"];
+    [noteDivisionDropdown addItemWithTitle:@"1/2"];
+    [noteDivisionDropdown addItemWithTitle:@"1/1"];
+    [noteDivisionDropdown addItemWithTitle:@"1/32T"];
+    [noteDivisionDropdown addItemWithTitle:@"1/16T"];
+    [noteDivisionDropdown addItemWithTitle:@"1/8T"];
+    [noteDivisionDropdown addItemWithTitle:@"1/4T"];
+    [noteDivisionDropdown addItemWithTitle:@"1/2T"];
+    [noteDivisionDropdown addItemWithTitle:@"1/16."];
+    [noteDivisionDropdown addItemWithTitle:@"1/8."];
+    [noteDivisionDropdown addItemWithTitle:@"1/4."];
+    [noteDivisionDropdown addItemWithTitle:@"1/2."];
+
+    AudioUnitParameterID noteDivisionParamID = (lfoNum == 1) ? kParam_LFO1_NoteDivision : kParam_LFO2_NoteDivision;
+    AudioUnitParameterValue initialNoteDivision = 2.0f;  // 1/8 note
+    if (mAU) {
+        AudioUnitGetParameter(mAU, noteDivisionParamID, kAudioUnitScope_Global, 0, &initialNoteDivision);
+    }
+    [noteDivisionDropdown selectItemAtIndex:(int)initialNoteDivision];
+    [noteDivisionDropdown setTarget:self];
+
+    // LED indicator (next to Rate label)
+    MatrixLED *led = [[MatrixLED alloc] initWithFrame:NSMakeRect(x + 42, 337, 12, 12)];
+    [self addSubview:led];
+
+    // Initially hide note division dropdown if tempo sync is off
+    [noteDivisionDropdown setHidden:(initialTempoSync < 0.5f)];
+
+    if (lfoNum == 1) {
+        [tempoSyncCheckbox setAction:@selector(lfo1TempoSyncChanged:)];
+        [noteDivisionDropdown setAction:@selector(lfo1NoteDivisionChanged:)];
+        lfo1TempoSyncCheckbox = tempoSyncCheckbox;
+        lfo1NoteDivisionDropdown = noteDivisionDropdown;
+        lfo1LED = led;
+    } else {
+        [tempoSyncCheckbox setAction:@selector(lfo2TempoSyncChanged:)];
+        [noteDivisionDropdown setAction:@selector(lfo2NoteDivisionChanged:)];
+        lfo2TempoSyncCheckbox = tempoSyncCheckbox;
+        lfo2NoteDivisionDropdown = noteDivisionDropdown;
+        lfo2LED = led;
+    }
+
+    [self addSubview:tempoSyncCheckbox];
+    [self addSubview:noteDivisionDropdown];
 }
 
 - (void)createModulationMatrixSection {
@@ -1545,6 +1608,25 @@
     [lfoRateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
 }
 
+- (void)lfo1TempoSyncChanged:(id)sender {
+    BOOL enabled = ([lfo1TempoSyncCheckbox state] == NSControlStateValueOn);
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO1_TempoSync, kAudioUnitScope_Global, 0, enabled ? 1.0f : 0.0f, 0);
+    }
+    // Show/hide note division dropdown
+    [lfo1NoteDivisionDropdown setHidden:!enabled];
+    // Show/hide rate knob and display
+    [lfoRateKnob setHidden:enabled];
+    [lfoRateDisplay setHidden:enabled];
+}
+
+- (void)lfo1NoteDivisionChanged:(id)sender {
+    int value = (int)[lfo1NoteDivisionDropdown indexOfSelectedItem];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO1_NoteDivision, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
+}
+
 // LFO 2
 - (void)lfo2WaveformChanged:(id)sender {
     int value = [lfo2WaveformKnob intValue];
@@ -1559,6 +1641,25 @@
         AudioUnitSetParameter(mAU, kParam_LFO2_Rate, kAudioUnitScope_Global, 0, value, 0);
     }
     [lfo2RateDisplay setStringValue:[NSString stringWithFormat:@"%.1f Hz", value]];
+}
+
+- (void)lfo2TempoSyncChanged:(id)sender {
+    BOOL enabled = ([lfo2TempoSyncCheckbox state] == NSControlStateValueOn);
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO2_TempoSync, kAudioUnitScope_Global, 0, enabled ? 1.0f : 0.0f, 0);
+    }
+    // Show/hide note division dropdown
+    [lfo2NoteDivisionDropdown setHidden:!enabled];
+    // Show/hide rate knob and display
+    [lfo2RateKnob setHidden:enabled];
+    [lfo2RateDisplay setHidden:enabled];
+}
+
+- (void)lfo2NoteDivisionChanged:(id)sender {
+    int value = (int)[lfo2NoteDivisionDropdown indexOfSelectedItem];
+    if (mAU) {
+        AudioUnitSetParameter(mAU, kParam_LFO2_NoteDivision, kAudioUnitScope_Global, 0, (float)value, 0);
+    }
 }
 
 // Modulation Matrix
@@ -1854,6 +1955,14 @@
 
     // Note: Modulation matrix parameters are not polled in updateFromHost
     // since they are typically only changed by the user via the UI
+
+    // Update LFO indicators
+    if (AudioUnitGetParameter(mAU, kParam_LFO1_Output, kAudioUnitScope_Global, 0, &value) == noErr) {
+        [lfo1LED setValue:value];
+    }
+    if (AudioUnitGetParameter(mAU, kParam_LFO2_Output, kAudioUnitScope_Global, 0, &value) == noErr) {
+        [lfo2LED setValue:value];
+    }
 }
 
 @end
