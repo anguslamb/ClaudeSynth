@@ -155,19 +155,19 @@
         self.layer.backgroundColor = [[ClaudeSynthView matrixBackground] CGColor];
 
         // Title label at top
-        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 425, 1240, 25)];
+        titleLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 438, 1240, 20)];
         [titleLabel setStringValue:@"ClaudeSynth"];
         [titleLabel setAlignment:NSTextAlignmentCenter];
         [titleLabel setBezeled:NO];
         [titleLabel setDrawsBackground:NO];
         [titleLabel setEditable:NO];
         [titleLabel setSelectable:NO];
-        [titleLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:20]];
+        [titleLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:18]];
         [titleLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
         [self addSubview:titleLabel];
 
         // Version label at top right
-        NSTextField *versionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(1130, 430, 100, 20)];
+        NSTextField *versionLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(1130, 440, 100, 18)];
         [versionLabel setStringValue:@"v" CLAUDESYNTH_VERSION];
         [versionLabel setAlignment:NSTextAlignmentRight];
         [versionLabel setBezeled:NO];
@@ -192,7 +192,7 @@
 
         // Vertical dividers in top section
         // After Oscillators (between Osc3 and LFO1)
-        NSBox *divider1 = [[NSBox alloc] initWithFrame:NSMakeRect(540, 200, 1, 280)];
+        NSBox *divider1 = [[NSBox alloc] initWithFrame:NSMakeRect(445, 200, 1, 215)];
         [divider1 setBoxType:NSBoxCustom];
         [divider1 setBorderType:NSLineBorder];
         [divider1 setBorderColor:dividerColor];
@@ -201,7 +201,7 @@
         [self addSubview:divider1];
 
         // Between LFOs and Filter
-        NSBox *divider2 = [[NSBox alloc] initWithFrame:NSMakeRect(720, 200, 1, 280)];
+        NSBox *divider2 = [[NSBox alloc] initWithFrame:NSMakeRect(625, 200, 1, 215)];
         [divider2 setBoxType:NSBoxCustom];
         [divider2 setBorderType:NSLineBorder];
         [divider2 setBorderColor:dividerColor];
@@ -210,7 +210,7 @@
         [self addSubview:divider2];
 
         // Between Filter and Envelopes
-        NSBox *divider3 = [[NSBox alloc] initWithFrame:NSMakeRect(900, 200, 1, 280)];
+        NSBox *divider3 = [[NSBox alloc] initWithFrame:NSMakeRect(775, 200, 1, 215)];
         [divider3 setBoxType:NSBoxCustom];
         [divider3 setBorderType:NSLineBorder];
         [divider3 setBorderColor:dividerColor];
@@ -219,7 +219,7 @@
         [self addSubview:divider3];
 
         // Between Envelopes and Master
-        NSBox *divider4 = [[NSBox alloc] initWithFrame:NSMakeRect(1260, 200, 1, 280)];
+        NSBox *divider4 = [[NSBox alloc] initWithFrame:NSMakeRect(1075, 200, 1, 215)];
         [divider4 setBoxType:NSBoxCustom];
         [divider4 setBorderType:NSLineBorder];
         [divider4 setBorderColor:dividerColor];
@@ -228,7 +228,7 @@
         [self addSubview:divider4];
 
         // Vertical divider in bottom section (between Modulation Matrix and Effects)
-        NSBox *divider5 = [[NSBox alloc] initWithFrame:NSMakeRect(580, 10, 1, 170)];
+        NSBox *divider5 = [[NSBox alloc] initWithFrame:NSMakeRect(265, 10, 1, 170)];
         [divider5 setBoxType:NSBoxCustom];
         [divider5 setBorderType:NSLineBorder];
         [divider5 setBorderColor:dividerColor];
@@ -265,7 +265,7 @@
         [self createLFOSectionAtX:lfo2X lfoNum:2];
 
         // ===== FILTER SECTION =====
-        filterLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 455, 120, 20)];
+        filterLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 415, 120, 20)];
         [filterLabel setStringValue:@"Filter"];
         [filterLabel setAlignment:NSTextAlignmentCenter];
         [filterLabel setBezeled:NO];
@@ -354,7 +354,7 @@
         [self addSubview:resonanceValueDisplay];
 
         // ===== ENVELOPE SECTION =====
-        envelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 30, 455, 120, 20)];
+        envelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 30, 415, 120, 20)];
         [envelopeLabel setStringValue:@"Envelope"];
         [envelopeLabel setAlignment:NSTextAlignmentCenter];
         [envelopeLabel setBezeled:NO];
@@ -433,7 +433,7 @@
         [self addSubview:releaseDisplay];
 
         // ===== FILTER ENVELOPE SECTION =====
-        filterEnvelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterEnvelopeX + 30, 455, 120, 20)];
+        filterEnvelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterEnvelopeX + 30, 415, 120, 20)];
         [filterEnvelopeLabel setStringValue:@"Filter Env"];
         [filterEnvelopeLabel setAlignment:NSTextAlignmentCenter];
         [filterEnvelopeLabel setBezeled:NO];
@@ -512,7 +512,7 @@
         [self addSubview:filterReleaseDisplay];
 
         // ===== AMP SECTION =====
-        masterVolumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 455, 120, 20)];
+        masterVolumeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(masterX + 30, 415, 120, 20)];
         [masterVolumeLabel setStringValue:@"Amp"];
         [masterVolumeLabel setAlignment:NSTextAlignmentCenter];
         [masterVolumeLabel setBezeled:NO];
@@ -903,7 +903,7 @@
     RotaryKnob *octaveKnob, *detuneKnob, *volumeKnob;
 
     // Section label
-    label = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 455, 120, 20)];
+    label = [[NSTextField alloc] initWithFrame:NSMakeRect(x + 30, 415, 120, 20)];
     [label setStringValue:[NSString stringWithFormat:@"Osc %d", oscNum]];
     [label setAlignment:NSTextAlignmentCenter];
     [label setBezeled:NO];
@@ -1124,7 +1124,7 @@
 
 - (void)createLFOSectionAtX:(int)x lfoNum:(int)lfoNum {
     // Section label
-    NSTextField *label = [[NSTextField alloc] initWithFrame:NSMakeRect(x, 455, 90, 20)];
+    NSTextField *label = [[NSTextField alloc] initWithFrame:NSMakeRect(x, 415, 90, 20)];
     [label setStringValue:[NSString stringWithFormat:@"LFO %d", lfoNum]];
     [label setAlignment:NSTextAlignmentCenter];
     [label setBezeled:NO];
