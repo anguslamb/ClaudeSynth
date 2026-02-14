@@ -249,6 +249,10 @@
         int filterEnvelopeX = 930;
         int masterX = 1080;
 
+        // Create Filter container (PROOF OF CONCEPT for container-based sections)
+        NSView *filterContainer = [[NSView alloc] initWithFrame:NSMakeRect(filterX, 200, 145, 215)];
+        [self addSubview:filterContainer];
+
         // ===== OSCILLATOR 1 =====
         [self createOscillatorSection:1 atX:osc1X];
 
@@ -264,94 +268,8 @@
         // ===== LFO 2 SECTION =====
         [self createLFOSectionAtX:lfo2X lfoNum:2];
 
-        // ===== FILTER SECTION =====
-        filterLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 415, 120, 20)];
-        [filterLabel setStringValue:@"Filter"];
-        [filterLabel setAlignment:NSTextAlignmentCenter];
-        [filterLabel setBezeled:NO];
-        [filterLabel setDrawsBackground:NO];
-        [filterLabel setEditable:NO];
-        [filterLabel setSelectable:NO];
-        [filterLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
-        [filterLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
-        [self addSubview:filterLabel];
-
-        // Filter Cutoff
-        cutoffLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 420, 120, 16)];
-        [cutoffLabel setStringValue:@"Cutoff"];
-        [cutoffLabel setAlignment:NSTextAlignmentCenter];
-        [cutoffLabel setBezeled:NO];
-        [cutoffLabel setDrawsBackground:NO];
-        [cutoffLabel setEditable:NO];
-        [cutoffLabel setSelectable:NO];
-        [cutoffLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
-        [cutoffLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
-        [self addSubview:cutoffLabel];
-
-        cutoffKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 350, 50, 50)];
-        [cutoffKnob setMinValue:0.0];
-        [cutoffKnob setMaxValue:1.0];
-
-        AudioUnitParameterValue initialCutoff = 20000.0f;
-        if (mAU) {
-            AudioUnitGetParameter(mAU, kParam_FilterCutoff, kAudioUnitScope_Global, 0, &initialCutoff);
-        }
-        double cutoffPosition = log(initialCutoff / 20.0) / log(1000.0);
-        [cutoffKnob setDoubleValue:cutoffPosition];
-
-        [cutoffKnob setTarget:self];
-        [cutoffKnob setAction:@selector(cutoffChanged:)];
-        [cutoffKnob setContinuous:YES];
-        [self addSubview:cutoffKnob];
-
-        cutoffValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 330, 120, 16)];
-        [cutoffValueDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", initialCutoff]];
-        [cutoffValueDisplay setAlignment:NSTextAlignmentCenter];
-        [cutoffValueDisplay setBezeled:NO];
-        [cutoffValueDisplay setDrawsBackground:NO];
-        [cutoffValueDisplay setEditable:NO];
-        [cutoffValueDisplay setSelectable:NO];
-        [cutoffValueDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
-        [cutoffValueDisplay setTextColor:[ClaudeSynthView matrixCyan]];
-        [self addSubview:cutoffValueDisplay];
-
-        // Filter Resonance
-        resonanceLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 305, 120, 16)];
-        [resonanceLabel setStringValue:@"Resonance"];
-        [resonanceLabel setAlignment:NSTextAlignmentCenter];
-        [resonanceLabel setBezeled:NO];
-        [resonanceLabel setDrawsBackground:NO];
-        [resonanceLabel setEditable:NO];
-        [resonanceLabel setSelectable:NO];
-        [resonanceLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
-        [resonanceLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
-        [self addSubview:resonanceLabel];
-
-        resonanceKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(filterX + 50, 235, 50, 50)];
-        [resonanceKnob setMinValue:0.5];
-        [resonanceKnob setMaxValue:10.0];
-
-        AudioUnitParameterValue initialResonance = 0.7f;
-        if (mAU) {
-            AudioUnitGetParameter(mAU, kParam_FilterResonance, kAudioUnitScope_Global, 0, &initialResonance);
-        }
-        [resonanceKnob setDoubleValue:initialResonance];
-
-        [resonanceKnob setTarget:self];
-        [resonanceKnob setAction:@selector(resonanceChanged:)];
-        [resonanceKnob setContinuous:YES];
-        [self addSubview:resonanceKnob];
-
-        resonanceValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(filterX + 30, 215, 120, 16)];
-        [resonanceValueDisplay setStringValue:[NSString stringWithFormat:@"Q: %.2f", initialResonance]];
-        [resonanceValueDisplay setAlignment:NSTextAlignmentCenter];
-        [resonanceValueDisplay setBezeled:NO];
-        [resonanceValueDisplay setDrawsBackground:NO];
-        [resonanceValueDisplay setEditable:NO];
-        [resonanceValueDisplay setSelectable:NO];
-        [resonanceValueDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
-        [resonanceValueDisplay setTextColor:[ClaudeSynthView matrixCyan]];
-        [self addSubview:resonanceValueDisplay];
+        // ===== FILTER SECTION (Container-based) =====
+        [self createFilterSectionInContainer:filterContainer];
 
         // ===== ENVELOPE SECTION =====
         envelopeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(envelopeX + 30, 415, 120, 20)];
@@ -1817,6 +1735,100 @@
         AudioUnitSetParameter(mAU, kParam_ArpGate, kAudioUnitScope_Global, 0, value, 0);
     }
     [arpGateDisplay setStringValue:[NSString stringWithFormat:@"%.0f%%", value * 100.0]];
+}
+
+// Container-based section creation methods
+- (void)createFilterSectionInContainer:(NSView *)container {
+    NSRect bounds = [container bounds];
+
+    // Section label (at top of container)
+    filterLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(30, bounds.size.height - 20, 120, 20)];
+    [filterLabel setStringValue:@"Filter"];
+    [filterLabel setAlignment:NSTextAlignmentCenter];
+    [filterLabel setBezeled:NO];
+    [filterLabel setDrawsBackground:NO];
+    [filterLabel setEditable:NO];
+    [filterLabel setSelectable:NO];
+    [filterLabel setFont:[ClaudeSynthView matrixBoldFontOfSize:14]];
+    [filterLabel setTextColor:[ClaudeSynthView matrixBrightGreen]];
+    [container addSubview:filterLabel];
+
+    // Cutoff section
+    cutoffLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(30, bounds.size.height - 40, 120, 16)];
+    [cutoffLabel setStringValue:@"Cutoff"];
+    [cutoffLabel setAlignment:NSTextAlignmentCenter];
+    [cutoffLabel setBezeled:NO];
+    [cutoffLabel setDrawsBackground:NO];
+    [cutoffLabel setEditable:NO];
+    [cutoffLabel setSelectable:NO];
+    [cutoffLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+    [cutoffLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
+    [container addSubview:cutoffLabel];
+
+    cutoffKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(50, 150, 50, 50)];
+    [cutoffKnob setMinValue:0.0];
+    [cutoffKnob setMaxValue:1.0];
+
+    AudioUnitParameterValue initialCutoff = 20000.0f;
+    if (mAU) {
+        AudioUnitGetParameter(mAU, kParam_FilterCutoff, kAudioUnitScope_Global, 0, &initialCutoff);
+    }
+    double cutoffPosition = log(initialCutoff / 20.0) / log(1000.0);
+    [cutoffKnob setDoubleValue:cutoffPosition];
+
+    [cutoffKnob setTarget:self];
+    [cutoffKnob setAction:@selector(cutoffChanged:)];
+    [cutoffKnob setContinuous:YES];
+    [container addSubview:cutoffKnob];
+
+    cutoffValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(30, 130, 120, 16)];
+    [cutoffValueDisplay setStringValue:[NSString stringWithFormat:@"%.0f Hz", initialCutoff]];
+    [cutoffValueDisplay setAlignment:NSTextAlignmentCenter];
+    [cutoffValueDisplay setBezeled:NO];
+    [cutoffValueDisplay setDrawsBackground:NO];
+    [cutoffValueDisplay setEditable:NO];
+    [cutoffValueDisplay setSelectable:NO];
+    [cutoffValueDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [cutoffValueDisplay setTextColor:[ClaudeSynthView matrixCyan]];
+    [container addSubview:cutoffValueDisplay];
+
+    // Resonance section
+    resonanceLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(30, 105, 120, 16)];
+    [resonanceLabel setStringValue:@"Resonance"];
+    [resonanceLabel setAlignment:NSTextAlignmentCenter];
+    [resonanceLabel setBezeled:NO];
+    [resonanceLabel setDrawsBackground:NO];
+    [resonanceLabel setEditable:NO];
+    [resonanceLabel setSelectable:NO];
+    [resonanceLabel setFont:[ClaudeSynthView matrixFontOfSize:11]];
+    [resonanceLabel setTextColor:[ClaudeSynthView matrixMediumGreen]];
+    [container addSubview:resonanceLabel];
+
+    resonanceKnob = [[RotaryKnob alloc] initWithFrame:NSMakeRect(50, 35, 50, 50)];
+    [resonanceKnob setMinValue:0.5];
+    [resonanceKnob setMaxValue:10.0];
+
+    AudioUnitParameterValue initialResonance = 0.7f;
+    if (mAU) {
+        AudioUnitGetParameter(mAU, kParam_FilterResonance, kAudioUnitScope_Global, 0, &initialResonance);
+    }
+    [resonanceKnob setDoubleValue:initialResonance];
+
+    [resonanceKnob setTarget:self];
+    [resonanceKnob setAction:@selector(resonanceChanged:)];
+    [resonanceKnob setContinuous:YES];
+    [container addSubview:resonanceKnob];
+
+    resonanceValueDisplay = [[NSTextField alloc] initWithFrame:NSMakeRect(30, 15, 120, 16)];
+    [resonanceValueDisplay setStringValue:[NSString stringWithFormat:@"Q: %.2f", initialResonance]];
+    [resonanceValueDisplay setAlignment:NSTextAlignmentCenter];
+    [resonanceValueDisplay setBezeled:NO];
+    [resonanceValueDisplay setDrawsBackground:NO];
+    [resonanceValueDisplay setEditable:NO];
+    [resonanceValueDisplay setSelectable:NO];
+    [resonanceValueDisplay setFont:[ClaudeSynthView matrixFontOfSize:10]];
+    [resonanceValueDisplay setTextColor:[ClaudeSynthView matrixCyan]];
+    [container addSubview:resonanceValueDisplay];
 }
 
 - (void)updateFromHost:(NSTimer *)timer {
